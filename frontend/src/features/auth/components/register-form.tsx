@@ -1,0 +1,91 @@
+"use client";
+
+import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import { AuthShell } from "@/features/auth/components/auth-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useRegister } from "@/hooks/use-auth";
+
+const registerSchema = z.object({
+  fullName: z.string().min(3, "Informe seu nome completo."),
+  email: z.string().email("Digite um email válido."),
+  username: z.string().min(3, "Use pelo menos 3 caracteres."),
+  password: z.string().min(8, "A senha precisa ter no mínimo 8 caracteres."),
+  targetCourse: z.string().optional(),
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
+
+export function RegisterForm() {
+  const { mutate, isPending } = useRegister();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+  });
+
+  return (
+    <AuthShell
+      title="Criar conta"
+      description="Monte sua base de estudos com uma experiência pronta para crescer com você."
+      footer={
+        <span>
+          Já tem conta?{" "}
+          <Link href="/login" className="font-semibold text-primary">
+            Fazer login
+          </Link>
+        </span>
+      }
+    >
+      <form
+        className="grid gap-5 sm:grid-cols-2"
+        onSubmit={handleSubmit((values) => mutate(values))}
+      >
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="fullName">Nome completo</Label>
+          <Input id="fullName" {...register("fullName")} />
+          {errors.fullName ? (
+            <p className="text-sm text-rose-500">{errors.fullName.message}</p>
+          ) : null}
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" {...register("email")} />
+          {errors.email ? (
+            <p className="text-sm text-rose-500">{errors.email.message}</p>
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="username">Username</Label>
+          <Input id="username" {...register("username")} />
+          {errors.username ? (
+            <p className="text-sm text-rose-500">{errors.username.message}</p>
+          ) : null}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="targetCourse">Curso alvo</Label>
+          <Input id="targetCourse" placeholder="Medicina, Direito..." {...register("targetCourse")} />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="password">Senha</Label>
+          <Input id="password" type="password" {...register("password")} />
+          {errors.password ? (
+            <p className="text-sm text-rose-500">{errors.password.message}</p>
+          ) : null}
+        </div>
+        <div className="sm:col-span-2">
+          <Button type="submit" size="lg" className="w-full" disabled={isPending}>
+            {isPending ? "Criando conta..." : "Criar conta e entrar"}
+          </Button>
+        </div>
+      </form>
+    </AuthShell>
+  );
+}

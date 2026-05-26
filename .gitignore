@@ -13,6 +13,16 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.supabase.example
+
+# Frontend / Next.js
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+*.tsbuildinfo
+backend/java.cmd
+backend/mvn.cmd
 
 # Logs
 logs/

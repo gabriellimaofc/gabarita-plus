@@ -1,0 +1,66 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { getErrorMessage } from "@/lib/api-error";
+import { questionsService } from "@/services/questions.service";
+import type { AnswerQuestionPayload, QuestionFilters } from "@/types/question";
+
+export function useQuestions(filters: QuestionFilters) {
+  return useQuery({
+    queryKey: ["questions", filters],
+    queryFn: () => questionsService.list(filters),
+  });
+}
+
+export function useQuestion(questionId: number) {
+  return useQuery({
+    queryKey: ["question", questionId],
+    queryFn: () => questionsService.getById(questionId),
+    enabled: Number.isFinite(questionId),
+  });
+}
+
+export function useAnswerQuestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: AnswerQuestionPayload) => questionsService.answer(payload),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["questions"] });
+      queryClient.invalidateQueries({ queryKey: ["question", data.questionId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      queryClient.invalidateQueries({ queryKey: ["error-notebook"] });
+      toast.success(
+        data.correct ? "Resposta correta. Excelente." : "Resposta enviada. Vamos revisar.",
+      );
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Não foi possível registrar sua resposta.")),
+  });
+}
+
+export function useToggleFavorite() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (questionId: number) => questionsService.toggleFavorite(questionId),
+    onSuccess: (question) => {
+      queryClient.invalidateQueries({ queryKey: ["questions"] });
+      queryClient.invalidateQueries({ queryKey: ["question", question.id] });
+      queryClient.invalidateQueries({ queryKey: ["error-notebook"] });
+      toast.success("Favoritos atualizados.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Não foi possível atualizar favoritos.")),
+  });
+}
+
+export function useErrorNotebook() {
+  return useQuery({
+    queryKey: ["error-notebook"],
+    queryFn: () => questionsService.getErrorNotebook(),
+  });
+}

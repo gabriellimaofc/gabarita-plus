@@ -71,6 +71,7 @@ public class AuthService {
         return buildAuthResponse(savedUser);
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.usernameOrEmail(), request.password())

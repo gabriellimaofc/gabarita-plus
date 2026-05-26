@@ -7,11 +7,13 @@ import com.gabaritaplus.api.entity.User;
 import com.gabaritaplus.api.repository.UserAnswerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class DashboardService {
 
     private final AuthenticatedUserService authenticatedUserService;

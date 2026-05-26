@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 234 100% 99%;
+    --foreground: 227 34% 12%;
+    --muted: 230 36% 95%;
+    --muted-foreground: 225 12% 42%;
+    --card: 0 0% 100%;
+    --card-foreground: 227 34% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 227 34% 12%;
+    --border: 228 28% 90%;
+    --input: 228 28% 90%;
+    --primary: 225 89% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 264 91% 65%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 223 100% 97%;
+    --accent-foreground: 227 34% 16%;
+    --success: 152 64% 41%;
+    --warning: 37 92% 50%;
+    --destructive: 0 82% 60%;
+    --ring: 225 89% 56%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 227 38% 7%;
+    --foreground: 220 33% 96%;
+    --muted: 226 31% 14%;
+    --muted-foreground: 226 18% 68%;
+    --card: 229 30% 10%;
+    --card-foreground: 220 33% 96%;
+    --popover: 229 30% 10%;
+    --popover-foreground: 220 33% 96%;
+    --border: 226 25% 18%;
+    --input: 226 25% 18%;
+    --primary: 222 100% 68%;
+    --primary-foreground: 229 35% 10%;
+    --secondary: 267 86% 72%;
+    --secondary-foreground: 229 35% 10%;
+    --accent: 226 28% 14%;
+    --accent-foreground: 220 33% 96%;
+    --success: 152 61% 48%;
+    --warning: 42 95% 57%;
+    --destructive: 0 74% 58%;
+    --ring: 222 100% 68%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, hsl(var(--primary) / 0.12), transparent 28%),
+      radial-gradient(circle at top right, hsl(var(--secondary) / 0.12), transparent 20%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+  }
+}
+
+@layer utilities {
+  .container-app {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .glass-panel {
+    @apply border border-white/10 bg-white/70 shadow-[0_20px_80px_-35px_rgba(50,70,180,0.45)] backdrop-blur-xl dark:bg-slate-950/55;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.3);
+  border-radius: 9999px;
+}

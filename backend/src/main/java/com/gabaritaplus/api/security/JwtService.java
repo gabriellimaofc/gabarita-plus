@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Service
@@ -56,6 +57,7 @@ public class JwtService {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(userDetails.getUsername())
+                .id(UUID.randomUUID().toString())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(refreshTokenExpirationDays, ChronoUnit.DAYS)))
                 .signWith(getSigningKey())

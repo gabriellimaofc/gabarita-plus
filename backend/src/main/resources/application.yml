@@ -37,6 +37,9 @@ springdoc:
     path: /v3/api-docs
 
 management:
+  health:
+    redis:
+      enabled: ${REDIS_ENABLED:false}
   endpoints:
     web:
       exposure:

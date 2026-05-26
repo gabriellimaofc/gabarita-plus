@@ -33,6 +33,7 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class QuestionService {
 
     private final QuestionRepository questionRepository;
