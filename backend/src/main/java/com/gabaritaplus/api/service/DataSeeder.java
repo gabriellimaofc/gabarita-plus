@@ -32,7 +32,7 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         log.info("Seed controlado habilitado. Verificando dados iniciais.");
-        Role userRole = roleRepository.findByName(RoleName.ROLE_USER).orElseGet(() -> createRole(RoleName.ROLE_USER, "UsuÃ¡rio padrÃ£o"));
+        Role userRole = roleRepository.findByName(RoleName.ROLE_USER).orElseGet(() -> createRole(RoleName.ROLE_USER, "Usuário padrão"));
         Role adminRole = roleRepository.findByName(RoleName.ROLE_ADMIN).orElseGet(() -> createRole(RoleName.ROLE_ADMIN, "Administrador da plataforma"));
 
         if (!userRepository.existsByEmail("admin@gabaritaplus.com")) {
@@ -73,38 +73,38 @@ public class DataSeeder implements CommandLineRunner {
     private void createSampleQuestions() {
         questionRepository.saveAll(List.of(
                 buildQuestion(
-                        "InterpretaÃ§Ã£o textual ENEM",
-                        "O texto discute os impactos da urbanizaÃ§Ã£o acelerada. Assinale a alternativa que apresenta a ideia central.",
+                        "Interpretação textual ENEM",
+                        "O texto discute os impactos da urbanização acelerada. Assinale a alternativa que apresenta a ideia central.",
                         "Linguagens",
-                        "InterpretaÃ§Ã£o de Texto",
-                        "CompreensÃ£o textual",
+                        "Interpretação de Texto",
+                        "Compreensão textual",
                         DifficultyLevel.MEDIUM,
                         2023,
                         "ENEM PPL",
-                        "CompetÃªncia 1",
+                        "Competência 1",
                         "Habilidade 4",
-                        "A ideia central aborda efeitos sociais e ambientais da urbanizaÃ§Ã£o.",
+                        "A ideia central aborda efeitos sociais e ambientais da urbanização.",
                         "B",
                         List.of(
-                                new AlternativeRequest("A", "A urbanizaÃ§Ã£o elimina desigualdades histÃ³ricas.", false),
-                                new AlternativeRequest("B", "A urbanizaÃ§Ã£o pode gerar impactos sociais e ambientais relevantes.", true),
+                                new AlternativeRequest("A", "A urbanização elimina desigualdades históricas.", false),
+                                new AlternativeRequest("B", "A urbanização pode gerar impactos sociais e ambientais relevantes.", true),
                                 new AlternativeRequest("C", "O texto defende exclusivamente o crescimento industrial.", false),
-                                new AlternativeRequest("D", "O foco principal estÃ¡ na produÃ§Ã£o agrÃ­cola.", false),
-                                new AlternativeRequest("E", "A crÃ­tica central Ã© sobre tecnologia domÃ©stica.", false)
+                                new AlternativeRequest("D", "O foco principal está na produção agrícola.", false),
+                                new AlternativeRequest("E", "A crítica central é sobre tecnologia doméstica.", false)
                         )
                 ),
                 buildQuestion(
-                        "FunÃ§Ã£o do segundo grau",
-                        "Uma parÃ¡bola possui raÃ­zes 2 e 6. Qual Ã© o eixo de simetria da funÃ§Ã£o?",
-                        "MatemÃ¡tica",
-                        "FunÃ§Ãµes",
-                        "FunÃ§Ã£o quadrÃ¡tica",
+                        "Função do segundo grau",
+                        "Uma parábola possui raízes 2 e 6. Qual é o eixo de simetria da função?",
+                        "Matemática",
+                        "Funções",
+                        "Função quadrática",
                         DifficultyLevel.EASY,
                         2022,
                         "ENEM Regular",
-                        "CompetÃªncia 5",
+                        "Competência 5",
                         "Habilidade 21",
-                        "O eixo de simetria Ã© a mÃ©dia aritmÃ©tica entre as raÃ­zes.",
+                        "O eixo de simetria é a média aritmética entre as raízes.",
                         "C",
                         List.of(
                                 new AlternativeRequest("A", "x = 2", false),

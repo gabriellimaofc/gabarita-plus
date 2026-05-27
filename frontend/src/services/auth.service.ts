@@ -1,4 +1,9 @@
-import { apiClient, refreshSessionRequest, unwrapResponse } from "@/services/http/api-client";
+import {
+  apiClient,
+  publicApiClient,
+  refreshSessionRequest,
+  unwrapResponse,
+} from "@/services/http/api-client";
 import type { ApiResponse } from "@/types/api";
 import type {
   AuthResponse,
@@ -8,7 +13,7 @@ import type {
 
 export const authService = {
   async login(payload: LoginPayload) {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>(
+    const response = await publicApiClient.post<ApiResponse<AuthResponse>>(
       "/auth/login",
       payload,
     );
@@ -16,7 +21,7 @@ export const authService = {
   },
 
   async register(payload: RegisterPayload) {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>(
+    const response = await publicApiClient.post<ApiResponse<AuthResponse>>(
       "/auth/register",
       payload,
     );

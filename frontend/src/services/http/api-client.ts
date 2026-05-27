@@ -20,7 +20,7 @@ export const apiClient = axios.create({
   },
 });
 
-const authClient = axios.create({
+export const publicApiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
   timeout: 60_000,
@@ -46,7 +46,7 @@ function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
 }
 
 export async function refreshSessionRequest(refreshToken: string) {
-  const response = await authClient.post<ApiResponse<AuthResponse>>("/auth/refresh", {
+  const response = await publicApiClient.post<ApiResponse<AuthResponse>>("/auth/refresh", {
     refreshToken,
   });
 
@@ -54,6 +54,10 @@ export async function refreshSessionRequest(refreshToken: string) {
 }
 
 apiClient.interceptors.request.use((config) => {
+  if (config.url?.startsWith("/auth/")) {
+    return config;
+  }
+
   const token = useAuthStore.getState().accessToken;
 
   if (token) {

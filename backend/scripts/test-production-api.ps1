@@ -82,6 +82,36 @@ $headers = @{ Authorization = "Bearer $accessToken" }
     UserFields = ($login.data.user.PSObject.Properties.Name -join ",")
 } | ConvertTo-Json -Depth 5
 
+Write-Step "Cadastro com token invalido ignorado em rota publica"
+$suffix = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+$registerBody = @{
+    fullName = "Teste Producao $suffix"
+    email = "teste.producao.$suffix@example.com"
+    username = "testeprod$suffix"
+    password = "User@12345"
+    targetCourse = "Medicina"
+} | ConvertTo-Json
+
+try {
+    $register = Invoke-RestMethod `
+        -Method Post `
+        -Uri "$BaseUrl/auth/register" `
+        -ContentType "application/json" `
+        -Headers @{ Authorization = "Bearer token-antigo-ou-invalido" } `
+        -Body $registerBody
+} catch {
+    $errorBody = Read-ErrorResponse $_.Exception
+    throw "Falha no cadastro: $errorBody"
+}
+
+[pscustomobject]@{
+    Success = $register.success
+    Message = $register.message
+    HasAccessToken = [bool]$register.data.accessToken
+    HasRefreshToken = [bool]$register.data.refreshToken
+    UserEmail = $register.data.user.email
+} | ConvertTo-Json -Depth 5
+
 Write-Step "Dashboard"
 $dashboard = Invoke-RestMethod -Method Get -Uri "$BaseUrl/dashboard" -Headers $headers
 [pscustomobject]@{

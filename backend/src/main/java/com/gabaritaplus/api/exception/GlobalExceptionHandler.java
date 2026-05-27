@@ -36,12 +36,12 @@ public class GlobalExceptionHandler {
         for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
             errors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
-        return ResponseEntity.badRequest().body(ApiResponse.error("Dados de entrada invÃ¡lidos.", errors));
+        return ResponseEntity.badRequest().body(ApiResponse.error("Dados de entrada inválidos.", errors));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraint(ConstraintViolationException exception) {
-        return ResponseEntity.badRequest().body(ApiResponse.error("ViolaÃ§Ã£o de regra de validaÃ§Ã£o.", null));
+        return ResponseEntity.badRequest().body(ApiResponse.error("Violação de regra de validação.", null));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

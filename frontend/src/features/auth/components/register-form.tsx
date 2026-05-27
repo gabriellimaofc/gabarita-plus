@@ -10,14 +10,14 @@ import { AuthShell } from "@/features/auth/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getErrorMessage } from "@/lib/api-error";
+import { getErrorMessage, toAppError } from "@/lib/api-error";
 import { useRegister } from "@/hooks/use-auth";
 
 const registerSchema = z.object({
   fullName: z.string().min(3, "Informe seu nome completo."),
-  email: z.string().email("Digite um email vÃ¡lido."),
+  email: z.string().email("Digite um email válido."),
   username: z.string().min(3, "Use pelo menos 3 caracteres."),
-  password: z.string().min(8, "A senha precisa ter no mÃ­nimo 8 caracteres."),
+  password: z.string().min(8, "A senha precisa ter no mínimo 8 caracteres."),
   targetCourse: z.string().optional(),
 });
 
@@ -36,16 +36,16 @@ export function RegisterForm() {
   });
 
   const errorMessage = registerUser.error
-    ? getErrorMessage(registerUser.error, "NÃ£o foi possÃ­vel criar sua conta.")
+    ? getRegisterErrorMessage(registerUser.error)
     : null;
 
   return (
     <AuthShell
       title="Criar conta"
-      description="Monte sua base de estudos com uma experiÃªncia pronta para crescer com vocÃª."
+      description="Monte sua base de estudos com uma experiência pronta para crescer com você."
       footer={
         <span>
-          JÃ¡ tem conta?{" "}
+          Já tem conta?{" "}
           <Link
             href={redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : "/login"}
             className="font-semibold text-primary"
@@ -116,4 +116,14 @@ export function RegisterForm() {
       </form>
     </AuthShell>
   );
+}
+
+function getRegisterErrorMessage(error: unknown) {
+  const fallback = "Não foi possível criar sua conta. Verifique os dados e tente novamente.";
+  const appError = toAppError(error);
+  if (appError.status === 401) {
+    return fallback;
+  }
+
+  return getErrorMessage(appError, fallback);
 }

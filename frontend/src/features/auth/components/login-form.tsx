@@ -10,7 +10,7 @@ import { AuthShell } from "@/features/auth/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getErrorMessage } from "@/lib/api-error";
+import { getErrorMessage, toAppError } from "@/lib/api-error";
 import { useLogin } from "@/hooks/use-auth";
 
 const loginSchema = z.object({
@@ -37,16 +37,16 @@ export function LoginForm() {
   });
 
   const errorMessage = login.error
-    ? getErrorMessage(login.error, "NÃ£o foi possÃ­vel entrar agora.")
+    ? getAuthErrorMessage(login.error, "Email, username ou senha inválidos.")
     : null;
 
   return (
     <AuthShell
       title="Entrar"
-      description="Acesse seu painel, retome seus simulados e mantenha sua trilha de evoluÃ§Ã£o em dia."
+      description="Acesse seu painel, retome seus simulados e mantenha sua trilha de evolução em dia."
       footer={
         <span>
-          Ainda nÃ£o tem conta?{" "}
+          Ainda não tem conta?{" "}
           <Link
             href={redirectTo ? `/cadastro?redirectTo=${encodeURIComponent(redirectTo)}` : "/cadastro"}
             className="font-semibold text-primary"
@@ -89,4 +89,13 @@ export function LoginForm() {
       </form>
     </AuthShell>
   );
+}
+
+function getAuthErrorMessage(error: unknown, fallback: string) {
+  const appError = toAppError(error);
+  if (appError.status === 401) {
+    return fallback;
+  }
+
+  return getErrorMessage(appError, fallback);
 }

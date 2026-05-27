@@ -21,6 +21,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
         "app.seed.enabled=false",
         "logging.level.org.springframework=warn",
@@ -69,6 +72,39 @@ class StudyFlowsIntegrationTests {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Test
+    void publicAuthRoutesIgnoreInvalidBearerToken() throws Exception {
+        User user = createUser("User@123");
+
+        mockMvc.perform(post("/auth/login")
+                        .header("Authorization", "Bearer token-antigo-ou-invalido")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "usernameOrEmail", user.getEmail(),
+                                "password", "User@123"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").exists())
+                .andExpect(jsonPath("$.data.refreshToken").exists());
+
+        mockMvc.perform(post("/auth/register")
+                        .header("Authorization", "Bearer token-antigo-ou-invalido")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "fullName", "Novo Aluno",
+                                "email", "novo." + UUID.randomUUID() + "@example.com",
+                                "username", "novo" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
+                                "password", "User@123",
+                                "targetCourse", "Medicina"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").exists())
+                .andExpect(jsonPath("$.data.refreshToken").exists());
+    }
 
     @Test
     void questionAnswerFlowKeepsAnswerKeyHiddenUntilAnsweredAndUpdatesErrorNotebook() throws Exception {
@@ -207,6 +243,10 @@ class StudyFlowsIntegrationTests {
     }
 
     private User createUser() {
+        return createUser("$2a$10$abcdefghijklmnopqrstuv");
+    }
+
+    private User createUser(String rawPassword) {
         Role userRole = roleRepository.findByName(RoleName.ROLE_USER)
                 .orElseGet(() -> {
                     Role role = new Role();
@@ -220,7 +260,7 @@ class StudyFlowsIntegrationTests {
         user.setFullName("Teste " + suffix);
         user.setEmail("teste." + suffix + "@example.com");
         user.setUsername("teste" + suffix);
-        user.setPassword("$2a$10$abcdefghijklmnopqrstuv");
+        user.setPassword(passwordEncoder.encode(rawPassword));
         user.getRoles().add(userRole);
         return userRepository.save(user);
     }

@@ -55,14 +55,14 @@ public class AuthService {
         log.info("Tentativa de cadastro recebida. email={}, username={}", normalizedEmail, normalizedUsername);
 
         if (userRepository.existsByEmail(normalizedEmail)) {
-            throw new BusinessException("Email jÃ¡ cadastrado.", HttpStatus.CONFLICT);
+            throw new BusinessException("Email já cadastrado.", HttpStatus.CONFLICT);
         }
         if (userRepository.existsByUsername(normalizedUsername)) {
-            throw new BusinessException("Username jÃ¡ cadastrado.", HttpStatus.CONFLICT);
+            throw new BusinessException("Username já cadastrado.", HttpStatus.CONFLICT);
         }
 
         Role userRole = roleRepository.findByName(RoleName.ROLE_USER)
-                .orElseThrow(() -> new BusinessException("Role padrÃ£o nÃ£o configurada.", HttpStatus.INTERNAL_SERVER_ERROR));
+                .orElseThrow(() -> new BusinessException("Role padrão não configurada.", HttpStatus.INTERNAL_SERVER_ERROR));
 
         User user = new User();
         user.setFullName(request.fullName().trim());
@@ -86,16 +86,33 @@ public class AuthService {
                 .or(() -> userRepository.findByUsername(principal))
                 .orElseThrow(() -> {
                     log.warn("Tentativa de login para usuario inexistente. principal={}", principal);
-                    return new UnauthorizedException("Credenciais invÃ¡lidas.");
+                    return new UnauthorizedException("Credenciais inválidas.");
                 });
+
+        log.info(
+                "Usuario localizado para login. userId={}, active={}, roles={}",
+                user.getId(),
+                user.isActive(),
+                user.getRoles().stream().map(role -> role.getName().name()).toList()
+        );
+
+        if (!user.isActive()) {
+            log.warn("Login bloqueado para usuario inativo. userId={}", user.getId());
+            throw new UnauthorizedException("Credenciais inválidas.");
+        }
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            log.warn("Senha invalida para principal={}", principal);
+            throw new UnauthorizedException("Credenciais inválidas.");
+        }
 
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(principal, request.password())
             );
         } catch (BadCredentialsException exception) {
-            log.warn("Senha invalida para principal={}", principal);
-            throw new UnauthorizedException("Credenciais invÃ¡lidas.");
+            log.warn("AuthenticationManager recusou credenciais para principal={}", principal);
+            throw new UnauthorizedException("Credenciais inválidas.");
         }
 
         log.info("Login realizado com sucesso. userId={}", user.getId());
@@ -107,7 +124,7 @@ public class AuthService {
         log.info("Tentativa de renovacao de sessao recebida.");
         RefreshToken refreshToken = refreshTokenRepository.findByToken(request.refreshToken())
                 .filter(token -> !token.isRevoked())
-                .orElseThrow(() -> new UnauthorizedException("Refresh token invÃ¡lido."));
+                .orElseThrow(() -> new UnauthorizedException("Refresh token inválido."));
 
         if (refreshToken.getExpiresAt().isBefore(OffsetDateTime.now())) {
             throw new UnauthorizedException("Refresh token expirado.");
@@ -136,7 +153,7 @@ public class AuthService {
     public void logout(String refreshTokenValue) {
         log.info("Tentativa de logout recebida.");
         RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue)
-                .orElseThrow(() -> new UnauthorizedException("Refresh token invÃ¡lido."));
+                .orElseThrow(() -> new UnauthorizedException("Refresh token inválido."));
         refreshToken.setRevoked(true);
         refreshTokenRepository.save(refreshToken);
         log.info("Logout concluido com sucesso. userId={}", refreshToken.getUser().getId());

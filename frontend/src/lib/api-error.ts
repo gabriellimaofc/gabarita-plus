@@ -33,7 +33,7 @@ function resolveNetworkMessage(error: AxiosError) {
     return "A API demorou para responder. Se o backend estiver iniciando no Render, aguarde alguns segundos e tente novamente.";
   }
 
-  return "NÃ£o foi possÃ­vel alcanÃ§ar a API. Verifique se o backend no Render estÃ¡ ativo e se o domÃ­nio da Vercel estÃ¡ liberado no CORS.";
+  return "A API está iniciando. Tente novamente em alguns segundos.";
 }
 
 export function toAppError(error: unknown): AppError {
@@ -57,7 +57,7 @@ export function toAppError(error: unknown): AppError {
     }
 
     if (error.response.status === 401) {
-      return createAppError("Credenciais invÃ¡lidas ou sessÃ£o expirada.", error.response.status);
+      return createAppError("Credenciais inválidas ou sessão expirada.", error.response.status);
     }
 
     return createAppError(

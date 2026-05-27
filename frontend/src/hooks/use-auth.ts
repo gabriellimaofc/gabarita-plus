@@ -22,7 +22,7 @@ export function useLogin(redirectTarget?: string | null) {
       router.push(getSafeRedirectTarget(redirectTarget));
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "NÃ£o foi possÃ­vel entrar agora.")),
+      toast.error(getErrorMessage(error, "Email, username ou senha inválidos.")),
   });
 }
 
@@ -38,7 +38,7 @@ export function useRegister(redirectTarget?: string | null) {
       router.push(getSafeRedirectTarget(redirectTarget));
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "NÃ£o foi possÃ­vel criar sua conta.")),
+      toast.error(getErrorMessage(error, "Não foi possível criar sua conta. Verifique os dados e tente novamente.")),
   });
 }
 
@@ -57,7 +57,7 @@ export function useLogout() {
     },
     onSettled: () => {
       clearSession();
-      toast.success("SessÃ£o encerrada.");
+      toast.success("Sessão encerrada.");
       router.push("/login");
     },
     onError: (error) => {

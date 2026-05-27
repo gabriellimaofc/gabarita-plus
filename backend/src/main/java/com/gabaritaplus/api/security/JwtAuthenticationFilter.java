@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +28,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = resolveRequestPath(request);
+        String method = request.getMethod();
+
+        return HttpMethod.OPTIONS.matches(method)
+                || (HttpMethod.POST.matches(method) && isPublicAuthPath(path))
+                || (HttpMethod.GET.matches(method) && "/actuator/health".equals(path))
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/swagger-ui/")
+                || path.startsWith("/v3/api-docs/");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
@@ -38,6 +52,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String jwt = authorizationHeader.substring(7);
+            if (jwt.isBlank()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String username = jwtService.extractUsername(jwt);
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
@@ -57,11 +76,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             authenticationEntryPoint.commence(
                     request,
                     response,
-                    new BadCredentialsException("Token JWT invÃ¡lido.", exception)
+                    new BadCredentialsException("Token JWT inválido.", exception)
             );
             return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPublicAuthPath(String path) {
+        return "/auth/login".equals(path)
+                || "/auth/register".equals(path)
+                || "/auth/refresh".equals(path);
+    }
+
+    private String resolveRequestPath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath != null && !servletPath.isBlank()) {
+            return servletPath;
+        }
+
+        String contextPath = request.getContextPath();
+        String requestUri = request.getRequestURI();
+        if (contextPath != null && !contextPath.isBlank() && requestUri.startsWith(contextPath)) {
+            return requestUri.substring(contextPath.length());
+        }
+
+        return requestUri;
     }
 }
