@@ -4,6 +4,8 @@ import com.gabaritaplus.api.entity.UserAnswer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,6 +33,8 @@ public interface UserAnswerRepository extends JpaRepository<UserAnswer, Long> {
     List<UserAnswer> findTop10ByUserIdOrderByCreatedAtDesc(Long userId);
 
     Optional<UserAnswer> findTopByUserIdAndQuestionIdOrderByAttemptNumberDesc(Long userId, Long questionId);
+
+    List<UserAnswer> findByUserIdAndQuestionIdIn(Long userId, Collection<Long> questionIds);
 
     @Query("""
             select distinct ua.question.id
@@ -61,6 +65,16 @@ public interface UserAnswerRepository extends JpaRepository<UserAnswer, Long> {
             group by ua.question.topic
             """)
     List<Object[]> summarizeByTopic(Long userId);
+
+    @Query("""
+            select ua.question.id, max(ua.createdAt)
+            from UserAnswer ua
+            where ua.user.id = :userId
+              and ua.correct = false
+              and ua.question.id in :questionIds
+            group by ua.question.id
+            """)
+    List<Object[]> findLatestIncorrectAnswerByQuestionIds(Long userId, Collection<Long> questionIds);
 
     @Query(value = """
             select to_char(created_at at time zone 'UTC', 'IYYY-IW') as week_label,

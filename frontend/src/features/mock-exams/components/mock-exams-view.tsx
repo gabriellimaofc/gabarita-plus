@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { Clock3, FileSpreadsheet, Trophy } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -14,25 +16,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCreateMockExam, useFinishMockExam, useMockExams } from "@/hooks/use-mock-exams";
-import { useQuestions } from "@/hooks/use-questions";
+import { useCreateMockExam, useMockExams } from "@/hooks/use-mock-exams";
+import { formatDate, formatSecondsToMinutes } from "@/lib/utils";
 
 const createSchema = z.object({
-  title: z.string().min(3, "Informe um título."),
+  title: z.string().min(3, "Informe um titulo."),
   durationMinutes: z.coerce.number().min(30, "Use pelo menos 30 minutos."),
+  questionCount: z.coerce.number().min(10, "Use pelo menos 10 questoes."),
 });
 
 type CreateMockExamFormValues = z.infer<typeof createSchema>;
 
 export function MockExamsView() {
-  const [finalScores, setFinalScores] = useState<Record<number, string>>({});
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useMockExams();
-  const {
-    data: availableQuestions,
-    isLoading: isLoadingQuestions,
-  } = useQuestions({ page: 0, size: 20, direction: "DESC" });
-  const { mutate, isPending } = useCreateMockExam();
-  const { mutate: finishMockExam, isPending: isFinishing } = useFinishMockExam();
+  const createMockExam = useCreateMockExam();
   const {
     register,
     handleSubmit,
@@ -42,17 +40,16 @@ export function MockExamsView() {
     defaultValues: {
       title: "",
       durationMinutes: 90,
+      questionCount: 20,
     },
   });
-
-  const questionIds = availableQuestions?.items.map((question) => question.id) ?? [];
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Simulados"
-        title="Monte blocos de treino com contexto de prova."
-        description="Crie simulados temáticos, acompanhe conclusão e use o histórico para ajustar seu ritmo."
+        title="Monte provas completas e resolva como se fosse o dia oficial."
+        description="Crie simulados com selecao automatica de questoes, acompanhe o progresso, finalize com confirmacao e consulte o resultado detalhado depois."
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -60,19 +57,19 @@ export function MockExamsView() {
           <CardHeader>
             <CardTitle>Seus simulados</CardTitle>
             <CardDescription>
-              Acompanhe status, duração e nota final dos ciclos mais recentes.
+              Acompanhe o que esta em andamento, retome a resolucao e compare o resultado final por materia.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading
               ? Array.from({ length: 3 }).map((_, index) => (
-                  <Skeleton key={index} className="h-32" />
+                  <Skeleton key={index} className="h-40" />
                 ))
               : null}
 
             {isError ? (
               <ErrorState
-                title="Não foi possível carregar os simulados."
+                title="Nao foi possivel carregar os simulados."
                 description="Tente novamente para sincronizar a lista com o backend."
                 onRetry={() => void refetch()}
               />
@@ -81,7 +78,7 @@ export function MockExamsView() {
             {!isLoading && !isError && data?.length === 0 ? (
               <EmptyState
                 title="Nenhum simulado criado ainda."
-                description="Monte seu primeiro bloco usando as questões já disponíveis na plataforma."
+                description="Crie seu primeiro bloco de prova e entre direto na resolucao."
               />
             ) : null}
 
@@ -93,61 +90,49 @@ export function MockExamsView() {
                     key={exam.id}
                     className="rounded-[24px] border border-border/70 bg-background/70 p-5"
                   >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant={exam.finished ? "success" : "secondary"}>
+                            {exam.finished ? "Finalizado" : "Em andamento"}
+                          </Badge>
+                          <Badge variant="outline">
+                            <Clock3 className="mr-1 size-3.5" />
+                            {exam.durationMinutes} min
+                          </Badge>
+                          <Badge variant="outline">
+                            <FileSpreadsheet className="mr-1 size-3.5" />
+                            {exam.questionCount} questoes
+                          </Badge>
+                        </div>
                         <h2 className="text-lg font-semibold">{exam.title}</h2>
                         <p className="text-sm text-muted-foreground">
-                          {exam.questions.length} questões • {exam.durationMinutes} minutos
+                          {exam.answeredCount} resposta(s) registradas, {exam.correctCount} acerto(s) e {exam.unansweredCount} pendente(s).
                         </p>
                       </div>
-                      <Badge variant={exam.finished ? "success" : "secondary"}>
-                        {exam.finished ? "Concluído" : "Em andamento"}
-                      </Badge>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                      <span>
-                        Nota final:{" "}
-                        <strong className="text-foreground">
-                          {exam.finalScore ? exam.finalScore.toFixed(1) : "Pendente"}
-                        </strong>
-                      </span>
-                      <span>{new Date(exam.createdAt).toLocaleDateString("pt-BR")}</span>
+
+                      <div className="text-right text-sm text-muted-foreground">
+                        <p>Criado em {formatDate(exam.createdAt)}</p>
+                        {exam.finished && exam.timeSpentSeconds ? (
+                          <p>Tempo total {formatSecondsToMinutes(exam.timeSpentSeconds)}</p>
+                        ) : null}
+                      </div>
                     </div>
 
-                    {!exam.finished ? (
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                        <Input
-                          type="number"
-                          step="0.1"
-                          placeholder="Nota final"
-                          value={finalScores[exam.id] ?? ""}
-                          onChange={(event) =>
-                            setFinalScores((current) => ({
-                              ...current,
-                              [exam.id]: event.target.value,
-                            }))
-                          }
-                        />
-                        <Button
-                          type="button"
-                          disabled={
-                            isFinishing ||
-                            !finalScores[exam.id] ||
-                            Number(finalScores[exam.id]) < 0
-                          }
-                          onClick={() =>
-                            finishMockExam({
-                              mockExamId: exam.id,
-                              payload: {
-                                finalScore: Number(finalScores[exam.id]),
-                              },
-                            })
-                          }
-                        >
-                          {isFinishing ? "Finalizando..." : "Finalizar"}
-                        </Button>
+                    <div className="mt-4 flex flex-col gap-3 rounded-[20px] bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Nota final</p>
+                        <p className="text-2xl font-semibold">
+                          {exam.finalScore !== null ? exam.finalScore.toFixed(1) : "--"}
+                        </p>
                       </div>
-                    ) : null}
+
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/simulados/${exam.id}`}>
+                          <Button>{exam.finished ? "Ver resultado" : "Resolver simulado"}</Button>
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 ))
               : null}
@@ -158,25 +143,34 @@ export function MockExamsView() {
           <CardHeader>
             <CardTitle>Criar novo simulado</CardTitle>
             <CardDescription>
-              O envio usa o contrato real do backend com `title`, `durationMinutes` e `questionIds`.
+              O backend seleciona automaticamente a quantidade de questoes pedida e abre o fluxo real de resolucao.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form
               className="space-y-4"
-              onSubmit={handleSubmit((values) =>
-                mutate({ ...values, questionIds }),
-              )}
+              onSubmit={handleSubmit(async (values) => {
+                try {
+                  const exam = await createMockExam.mutateAsync({
+                    ...values,
+                  });
+
+                  router.push(`/simulados/${exam.id}`);
+                } catch {
+                  return;
+                }
+              })}
             >
               <div className="space-y-2">
-                <Label htmlFor="title">Título</Label>
+                <Label htmlFor="title">Titulo</Label>
                 <Input id="title" {...register("title")} />
                 {errors.title ? (
                   <p className="text-sm text-rose-500">{errors.title.message}</p>
                 ) : null}
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="durationMinutes">Duração em minutos</Label>
+                <Label htmlFor="durationMinutes">Duracao em minutos</Label>
                 <Input id="durationMinutes" type="number" {...register("durationMinutes")} />
                 {errors.durationMinutes ? (
                   <p className="text-sm text-rose-500">
@@ -184,21 +178,39 @@ export function MockExamsView() {
                   </p>
                 ) : null}
               </div>
-              <div className="rounded-[24px] bg-muted/40 p-4 text-sm leading-7 text-muted-foreground">
-                {isLoadingQuestions
-                  ? "Carregando questões disponíveis para o novo simulado..."
-                  : questionIds.length > 0
-                    ? `${questionIds.length} questões disponíveis serão enviadas neste simulado.`
-                    : "Nenhuma questão disponível no momento para montar o simulado."}
+
+              <div className="space-y-2">
+                <Label htmlFor="questionCount">Quantidade de questoes</Label>
+                <Input id="questionCount" type="number" {...register("questionCount")} />
+                {errors.questionCount ? (
+                  <p className="text-sm text-rose-500">
+                    {errors.questionCount.message}
+                  </p>
+                ) : null}
               </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isPending || isLoadingQuestions || questionIds.length === 0}
-              >
-                {isPending ? "Criando..." : "Criar simulado"}
+
+              <div className="rounded-[24px] bg-muted/40 p-4 text-sm leading-7 text-muted-foreground">
+                O sistema cria o caderno automaticamente, salva o progresso em tempo real e calcula o desempenho completo ao finalizar.
+              </div>
+
+              <Button type="submit" className="w-full" disabled={createMockExam.isPending}>
+                {createMockExam.isPending ? "Criando..." : "Criar e comecar agora"}
               </Button>
             </form>
+
+            <div className="mt-6 rounded-[24px] border border-border/70 bg-background/70 p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                  <Trophy className="size-5" />
+                </div>
+                <div>
+                  <p className="font-semibold">Experiencia de prova</p>
+                  <p className="text-sm text-muted-foreground">
+                    Resolucao em sequencia, cronometro, cartao-resposta e resultado por materia.
+                  </p>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

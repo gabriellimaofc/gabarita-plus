@@ -1,5 +1,6 @@
 package com.gabaritaplus.api.dto.question;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
 
 import java.time.OffsetDateTime;
@@ -18,8 +19,8 @@ public record QuestionResponse(
         String exam,
         String competency,
         String ability,
-        String explanation,
-        String correctAlternative,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String explanation,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String correctAlternative,
         boolean favorite,
         Boolean answered,
         Boolean answeredCorrectly,

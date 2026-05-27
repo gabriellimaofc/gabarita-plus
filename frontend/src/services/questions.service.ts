@@ -6,9 +6,11 @@ import type {
   AnswerQuestionPayload,
   AnswerQuestionResult,
   ErrorNotebookEntry,
+  ErrorNotebookFilters,
   Question,
   QuestionFilters,
   QuestionListResponse,
+  UpdateErrorNotebookStatusPayload,
 } from "@/types/question";
 
 function buildQuestionParams(filters: QuestionFilters) {
@@ -30,6 +32,20 @@ function buildQuestionParams(filters: QuestionFilters) {
         : filters.answered,
     incorrectOnly: filters.incorrectOnly || undefined,
     favoritesOnly: filters.favoritesOnly || undefined,
+  };
+}
+
+function buildErrorNotebookParams(filters?: ErrorNotebookFilters) {
+  if (!filters) {
+    return undefined;
+  }
+
+  return {
+    subject: filters.subject || undefined,
+    topic: filters.topic || undefined,
+    difficulty: filters.difficulty || undefined,
+    masteryStatus: filters.masteryStatus || undefined,
+    priority: filters.priority || undefined,
   };
 }
 
@@ -74,9 +90,23 @@ export const questionsService = {
     return unwrapResponse(response);
   },
 
-  async getErrorNotebook() {
+  async getErrorNotebook(filters?: ErrorNotebookFilters) {
     const response = await apiClient.get<ApiResponse<ErrorNotebookEntry[]>>(
       "/questions/error-notebook",
+      {
+        params: buildErrorNotebookParams(filters),
+      },
+    );
+    return unwrapResponse(response);
+  },
+
+  async updateErrorNotebookStatus(
+    questionId: number,
+    payload: UpdateErrorNotebookStatusPayload,
+  ) {
+    const response = await apiClient.patch<ApiResponse<ErrorNotebookEntry>>(
+      `/questions/error-notebook/${questionId}`,
+      payload,
     );
     return unwrapResponse(response);
   },

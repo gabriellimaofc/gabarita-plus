@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +40,13 @@ public class MockExam extends BaseEntity {
     @Column(precision = 5, scale = 2)
     private BigDecimal finalScore;
 
+    private OffsetDateTime finishedAt;
+
+    private Long timeSpentSeconds;
+
     @OneToMany(mappedBy = "mockExam", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MockExamQuestion> questions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "mockExam", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MockExamAnswer> answers = new ArrayList<>();
 }

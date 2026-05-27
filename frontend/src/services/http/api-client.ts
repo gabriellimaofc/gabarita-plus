@@ -6,6 +6,7 @@ import axios, {
 
 import { toAppError } from "@/lib/api-error";
 import { API_BASE_URL } from "@/lib/constants";
+import { getSafeRedirectTarget } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import type { ApiResponse } from "@/types/api";
 import type { AuthResponse } from "@/types/auth";
@@ -13,6 +14,7 @@ import type { AuthResponse } from "@/types/auth";
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  timeout: 60_000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -21,6 +23,7 @@ export const apiClient = axios.create({
 const authClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  timeout: 60_000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -32,13 +35,22 @@ export interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-export async function refreshSessionRequest(refreshToken: string) {
-  const response = await authClient.post<ApiResponse<AuthResponse>>(
-    "/auth/refresh",
-    { refreshToken },
+function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "success" in value &&
+      typeof (value as ApiResponse<T>).success === "boolean" &&
+      "message" in value,
   );
+}
 
-  return response.data.data;
+export async function refreshSessionRequest(refreshToken: string) {
+  const response = await authClient.post<ApiResponse<AuthResponse>>("/auth/refresh", {
+    refreshToken,
+  });
+
+  return unwrapResponse(response);
 }
 
 apiClient.interceptors.request.use((config) => {
@@ -81,7 +93,9 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         clearSession();
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          const currentPath = `${window.location.pathname}${window.location.search}`;
+          const redirectTarget = getSafeRedirectTarget(currentPath);
+          window.location.href = `/login?redirectTo=${encodeURIComponent(redirectTarget)}`;
         }
         return Promise.reject(toAppError(refreshError));
       }
@@ -92,5 +106,11 @@ apiClient.interceptors.response.use(
 );
 
 export function unwrapResponse<T>(response: AxiosResponse<ApiResponse<T>>) {
+  if (!isApiResponse<T>(response.data)) {
+    throw toAppError(
+      new AxiosError("A API respondeu em formato inesperado.", undefined, response.config, undefined, response),
+    );
+  }
+
   return response.data.data;
 }

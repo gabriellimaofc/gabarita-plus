@@ -21,6 +21,8 @@ spring:
     baseline-on-migrate: true
   data:
     redis:
+      repositories:
+        enabled: false
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       timeout: 2s
@@ -57,6 +59,8 @@ app:
     requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:120}
   redis:
     enabled: ${REDIS_ENABLED:false}
+  seed:
+    enabled: ${SEED_ENABLED:false}
 
 logging:
   level:

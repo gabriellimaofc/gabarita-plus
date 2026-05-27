@@ -7,6 +7,8 @@ public record UserAnswerResponse(
         Long questionId,
         String chosenAlternative,
         boolean correct,
+        String correctAlternative,
+        String explanation,
         int attemptNumber,
         long timeSpentSeconds,
         OffsetDateTime answeredAt

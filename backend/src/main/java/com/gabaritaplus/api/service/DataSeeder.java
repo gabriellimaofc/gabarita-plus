@@ -1,7 +1,6 @@
 package com.gabaritaplus.api.service;
 
 import com.gabaritaplus.api.dto.question.AlternativeRequest;
-import com.gabaritaplus.api.dto.question.QuestionRequest;
 import com.gabaritaplus.api.entity.Role;
 import com.gabaritaplus.api.entity.User;
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
@@ -10,15 +9,19 @@ import com.gabaritaplus.api.repository.QuestionRepository;
 import com.gabaritaplus.api.repository.RoleRepository;
 import com.gabaritaplus.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "app.seed", name = "enabled", havingValue = "true")
 public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
@@ -28,7 +31,8 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        Role userRole = roleRepository.findByName(RoleName.ROLE_USER).orElseGet(() -> createRole(RoleName.ROLE_USER, "Usuário padrão"));
+        log.info("Seed controlado habilitado. Verificando dados iniciais.");
+        Role userRole = roleRepository.findByName(RoleName.ROLE_USER).orElseGet(() -> createRole(RoleName.ROLE_USER, "UsuÃ¡rio padrÃ£o"));
         Role adminRole = roleRepository.findByName(RoleName.ROLE_ADMIN).orElseGet(() -> createRole(RoleName.ROLE_ADMIN, "Administrador da plataforma"));
 
         if (!userRepository.existsByEmail("admin@gabaritaplus.com")) {
@@ -39,6 +43,7 @@ public class DataSeeder implements CommandLineRunner {
             admin.setPassword(passwordEncoder.encode("Admin@123"));
             admin.setRoles(Set.of(adminRole, userRole));
             userRepository.save(admin);
+            log.info("Usuario seed admin criado.");
         }
 
         if (!userRepository.existsByEmail("user@gabaritaplus.com")) {
@@ -49,10 +54,12 @@ public class DataSeeder implements CommandLineRunner {
             user.setPassword(passwordEncoder.encode("User@123"));
             user.setRoles(Set.of(userRole));
             userRepository.save(user);
+            log.info("Usuario seed demo criado.");
         }
 
         if (questionRepository.count() == 0) {
             createSampleQuestions();
+            log.info("Questoes seed criadas com sucesso.");
         }
     }
 
@@ -66,38 +73,38 @@ public class DataSeeder implements CommandLineRunner {
     private void createSampleQuestions() {
         questionRepository.saveAll(List.of(
                 buildQuestion(
-                        "Interpretação textual ENEM",
-                        "O texto discute os impactos da urbanização acelerada. Assinale a alternativa que apresenta a ideia central.",
+                        "InterpretaÃ§Ã£o textual ENEM",
+                        "O texto discute os impactos da urbanizaÃ§Ã£o acelerada. Assinale a alternativa que apresenta a ideia central.",
                         "Linguagens",
-                        "Interpretação de Texto",
-                        "Compreensão textual",
+                        "InterpretaÃ§Ã£o de Texto",
+                        "CompreensÃ£o textual",
                         DifficultyLevel.MEDIUM,
                         2023,
                         "ENEM PPL",
-                        "Competência 1",
+                        "CompetÃªncia 1",
                         "Habilidade 4",
-                        "A ideia central aborda efeitos sociais e ambientais da urbanização.",
+                        "A ideia central aborda efeitos sociais e ambientais da urbanizaÃ§Ã£o.",
                         "B",
                         List.of(
-                                new AlternativeRequest("A", "A urbanização elimina desigualdades históricas.", false),
-                                new AlternativeRequest("B", "A urbanização pode gerar impactos sociais e ambientais relevantes.", true),
+                                new AlternativeRequest("A", "A urbanizaÃ§Ã£o elimina desigualdades histÃ³ricas.", false),
+                                new AlternativeRequest("B", "A urbanizaÃ§Ã£o pode gerar impactos sociais e ambientais relevantes.", true),
                                 new AlternativeRequest("C", "O texto defende exclusivamente o crescimento industrial.", false),
-                                new AlternativeRequest("D", "O foco principal está na produção agrícola.", false),
-                                new AlternativeRequest("E", "A crítica central é sobre tecnologia doméstica.", false)
+                                new AlternativeRequest("D", "O foco principal estÃ¡ na produÃ§Ã£o agrÃ­cola.", false),
+                                new AlternativeRequest("E", "A crÃ­tica central Ã© sobre tecnologia domÃ©stica.", false)
                         )
                 ),
                 buildQuestion(
-                        "Função do segundo grau",
-                        "Uma parábola possui raízes 2 e 6. Qual é o eixo de simetria da função?",
-                        "Matemática",
-                        "Funções",
-                        "Função quadrática",
+                        "FunÃ§Ã£o do segundo grau",
+                        "Uma parÃ¡bola possui raÃ­zes 2 e 6. Qual Ã© o eixo de simetria da funÃ§Ã£o?",
+                        "MatemÃ¡tica",
+                        "FunÃ§Ãµes",
+                        "FunÃ§Ã£o quadrÃ¡tica",
                         DifficultyLevel.EASY,
                         2022,
                         "ENEM Regular",
-                        "Competência 5",
+                        "CompetÃªncia 5",
                         "Habilidade 21",
-                        "O eixo de simetria é a média aritmética entre as raízes.",
+                        "O eixo de simetria Ã© a mÃ©dia aritmÃ©tica entre as raÃ­zes.",
                         "C",
                         List.of(
                                 new AlternativeRequest("A", "x = 2", false),

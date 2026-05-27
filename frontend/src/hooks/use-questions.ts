@@ -5,7 +5,12 @@ import { toast } from "sonner";
 
 import { getErrorMessage } from "@/lib/api-error";
 import { questionsService } from "@/services/questions.service";
-import type { AnswerQuestionPayload, QuestionFilters } from "@/types/question";
+import type {
+  AnswerQuestionPayload,
+  ErrorNotebookFilters,
+  QuestionFilters,
+  UpdateErrorNotebookStatusPayload,
+} from "@/types/question";
 
 export function useQuestions(filters: QuestionFilters) {
   return useQuery({
@@ -38,7 +43,7 @@ export function useAnswerQuestion() {
       );
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Não foi possível registrar sua resposta.")),
+      toast.error(getErrorMessage(error, "Nao foi possivel registrar sua resposta.")),
   });
 }
 
@@ -54,13 +59,36 @@ export function useToggleFavorite() {
       toast.success("Favoritos atualizados.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Não foi possível atualizar favoritos.")),
+      toast.error(getErrorMessage(error, "Nao foi possivel atualizar favoritos.")),
   });
 }
 
-export function useErrorNotebook() {
+export function useErrorNotebook(filters?: ErrorNotebookFilters) {
   return useQuery({
-    queryKey: ["error-notebook"],
-    queryFn: () => questionsService.getErrorNotebook(),
+    queryKey: ["error-notebook", filters],
+    queryFn: () => questionsService.getErrorNotebook(filters),
+  });
+}
+
+export function useUpdateErrorNotebookStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      questionId,
+      payload,
+    }: {
+      questionId: number;
+      payload: UpdateErrorNotebookStatusPayload;
+    }) => questionsService.updateErrorNotebookStatus(questionId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["error-notebook"] });
+      queryClient.invalidateQueries({ queryKey: ["questions"] });
+      toast.success("Status de dominio atualizado.");
+    },
+    onError: (error) =>
+      toast.error(
+        getErrorMessage(error, "Nao foi possivel atualizar o status no caderno de erros."),
+      ),
   });
 }

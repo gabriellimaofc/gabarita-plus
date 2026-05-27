@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.Set;
 
 @Slf4j
@@ -48,38 +50,53 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw new BusinessException("Email já cadastrado.", HttpStatus.CONFLICT);
+        String normalizedEmail = normalizePrincipal(request.email());
+        String normalizedUsername = normalizePrincipal(request.username());
+        log.info("Tentativa de cadastro recebida. email={}, username={}", normalizedEmail, normalizedUsername);
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new BusinessException("Email jÃ¡ cadastrado.", HttpStatus.CONFLICT);
         }
-        if (userRepository.existsByUsername(request.username())) {
-            throw new BusinessException("Username já cadastrado.", HttpStatus.CONFLICT);
+        if (userRepository.existsByUsername(normalizedUsername)) {
+            throw new BusinessException("Username jÃ¡ cadastrado.", HttpStatus.CONFLICT);
         }
 
         Role userRole = roleRepository.findByName(RoleName.ROLE_USER)
-                .orElseThrow(() -> new BusinessException("Role padrão não configurada.", HttpStatus.INTERNAL_SERVER_ERROR));
+                .orElseThrow(() -> new BusinessException("Role padrÃ£o nÃ£o configurada.", HttpStatus.INTERNAL_SERVER_ERROR));
 
         User user = new User();
-        user.setFullName(request.fullName());
-        user.setEmail(request.email().trim().toLowerCase());
-        user.setUsername(request.username().trim().toLowerCase());
+        user.setFullName(request.fullName().trim());
+        user.setEmail(normalizedEmail);
+        user.setUsername(normalizedUsername);
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setTargetCourse(request.targetCourse());
+        user.setTargetCourse(normalizeOptionalValue(request.targetCourse()));
         user.setRoles(Set.of(userRole));
 
         User savedUser = userRepository.save(user);
-        log.info("Usuário registrado com sucesso. userId={}, email={}", savedUser.getId(), savedUser.getEmail());
+        log.info("Cadastro concluido com sucesso. userId={}", savedUser.getId());
         return buildAuthResponse(savedUser);
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.usernameOrEmail(), request.password())
-        );
+        String principal = normalizePrincipal(request.usernameOrEmail());
+        log.info("Tentativa de login recebida. principal={}", principal);
 
-        User user = userRepository.findByEmail(request.usernameOrEmail())
-                .or(() -> userRepository.findByUsername(request.usernameOrEmail()))
-                .orElseThrow(() -> new UnauthorizedException("Credenciais inválidas."));
+        User user = userRepository.findByEmail(principal)
+                .or(() -> userRepository.findByUsername(principal))
+                .orElseThrow(() -> {
+                    log.warn("Tentativa de login para usuario inexistente. principal={}", principal);
+                    return new UnauthorizedException("Credenciais invÃ¡lidas.");
+                });
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(principal, request.password())
+            );
+        } catch (BadCredentialsException exception) {
+            log.warn("Senha invalida para principal={}", principal);
+            throw new UnauthorizedException("Credenciais invÃ¡lidas.");
+        }
 
         log.info("Login realizado com sucesso. userId={}", user.getId());
         return buildAuthResponse(user);
@@ -87,9 +104,10 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
+        log.info("Tentativa de renovacao de sessao recebida.");
         RefreshToken refreshToken = refreshTokenRepository.findByToken(request.refreshToken())
                 .filter(token -> !token.isRevoked())
-                .orElseThrow(() -> new UnauthorizedException("Refresh token inválido."));
+                .orElseThrow(() -> new UnauthorizedException("Refresh token invÃ¡lido."));
 
         if (refreshToken.getExpiresAt().isBefore(OffsetDateTime.now())) {
             throw new UnauthorizedException("Refresh token expirado.");
@@ -104,15 +122,24 @@ public class AuthService {
 
         String accessToken = jwtService.generateAccessToken(userDetails);
         UserProfileResponse profile = userMapper.toProfileResponse(user);
-        return new AuthResponse(accessToken, refreshToken.getToken(), "Bearer", jwtService.getAccessTokenExpirationSeconds(), profile);
+        log.info("Sessao renovada com sucesso. userId={}", user.getId());
+        return new AuthResponse(
+                accessToken,
+                refreshToken.getToken(),
+                "Bearer",
+                jwtService.getAccessTokenExpirationSeconds(),
+                profile
+        );
     }
 
     @Transactional
     public void logout(String refreshTokenValue) {
+        log.info("Tentativa de logout recebida.");
         RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue)
-                .orElseThrow(() -> new UnauthorizedException("Refresh token inválido."));
+                .orElseThrow(() -> new UnauthorizedException("Refresh token invÃ¡lido."));
         refreshToken.setRevoked(true);
         refreshTokenRepository.save(refreshToken);
+        log.info("Logout concluido com sucesso. userId={}", refreshToken.getUser().getId());
     }
 
     private AuthResponse buildAuthResponse(User user) {
@@ -131,6 +158,11 @@ public class AuthService {
         refreshToken.setToken(refreshTokenValue);
         refreshToken.setExpiresAt(OffsetDateTime.now().plusDays(refreshTokenExpirationDays));
         refreshTokenRepository.save(refreshToken);
+        log.info(
+                "Tokens gerados com sucesso. userId={}, accessTokenExpiresInSeconds={}",
+                user.getId(),
+                jwtService.getAccessTokenExpirationSeconds()
+        );
 
         return new AuthResponse(
                 accessToken,
@@ -139,5 +171,18 @@ public class AuthService {
                 jwtService.getAccessTokenExpirationSeconds(),
                 userMapper.toProfileResponse(user)
         );
+    }
+
+    private String normalizePrincipal(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeOptionalValue(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

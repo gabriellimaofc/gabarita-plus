@@ -2,8 +2,12 @@ package com.gabaritaplus.api.controller;
 
 import com.gabaritaplus.api.dto.common.ApiResponse;
 import com.gabaritaplus.api.dto.mockexam.FinishMockExamRequest;
+import com.gabaritaplus.api.dto.mockexam.MockExamAnswerRequest;
+import com.gabaritaplus.api.dto.mockexam.MockExamAnswerResponse;
+import com.gabaritaplus.api.dto.mockexam.MockExamQuestionDetailResponse;
 import com.gabaritaplus.api.dto.mockexam.MockExamRequest;
 import com.gabaritaplus.api.dto.mockexam.MockExamResponse;
+import com.gabaritaplus.api.dto.mockexam.MockExamResultResponse;
 import com.gabaritaplus.api.service.MockExamService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -41,9 +45,41 @@ public class MockExamController {
         return ResponseEntity.ok(ApiResponse.success("Simulado carregado com sucesso.", mockExamService.getById(id)));
     }
 
+    @GetMapping("/{id}/questions")
+    public ResponseEntity<ApiResponse<List<MockExamQuestionDetailResponse>>> getQuestions(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Questoes do simulado carregadas com sucesso.",
+                mockExamService.getQuestions(id)
+        ));
+    }
+
+    @PostMapping("/{id}/answers")
+    public ResponseEntity<ApiResponse<MockExamAnswerResponse>> answer(
+            @PathVariable Long id,
+            @Valid @RequestBody MockExamAnswerRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Resposta do simulado registrada com sucesso.",
+                mockExamService.answerQuestion(id, request)
+        ));
+    }
+
     @PostMapping("/{id}/finish")
-    public ResponseEntity<ApiResponse<MockExamResponse>> finish(@PathVariable Long id,
-                                                                @Valid @RequestBody FinishMockExamRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Simulado finalizado com sucesso.", mockExamService.finish(id, request)));
+    public ResponseEntity<ApiResponse<MockExamResultResponse>> finish(
+            @PathVariable Long id,
+            @Valid @RequestBody FinishMockExamRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Simulado finalizado com sucesso.",
+                mockExamService.finish(id, request)
+        ));
+    }
+
+    @GetMapping("/{id}/result")
+    public ResponseEntity<ApiResponse<MockExamResultResponse>> getResult(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Resultado do simulado carregado com sucesso.",
+                mockExamService.getResult(id)
+        ));
     }
 }

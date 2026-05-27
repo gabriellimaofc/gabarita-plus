@@ -141,7 +141,8 @@ Important:
 
 - keep `?sslmode=require` in `DB_URL`
 - keep `CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173`
-- set a long `JWT_SECRET`
+- set a long `JWT_SECRET` with at least 32 characters
+- keep `SEED_ENABLED=true` only while you need demo users and sample questions
 
 ## 7. Check prerequisites
 

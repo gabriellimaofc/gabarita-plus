@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +10,7 @@ import { AuthShell } from "@/features/auth/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getErrorMessage } from "@/lib/api-error";
 import { useLogin } from "@/hooks/use-auth";
 
 const loginSchema = z.object({
@@ -19,7 +21,9 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const { mutate, isPending } = useLogin();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo");
+  const login = useLogin(redirectTo);
   const {
     register,
     handleSubmit,
@@ -32,20 +36,35 @@ export function LoginForm() {
     },
   });
 
+  const errorMessage = login.error
+    ? getErrorMessage(login.error, "NÃ£o foi possÃ­vel entrar agora.")
+    : null;
+
   return (
     <AuthShell
       title="Entrar"
-      description="Acesse seu painel, retome seus simulados e mantenha sua trilha de evolução em dia."
+      description="Acesse seu painel, retome seus simulados e mantenha sua trilha de evoluÃ§Ã£o em dia."
       footer={
         <span>
-          Ainda não tem conta?{" "}
-          <Link href="/cadastro" className="font-semibold text-primary">
+          Ainda nÃ£o tem conta?{" "}
+          <Link
+            href={redirectTo ? `/cadastro?redirectTo=${encodeURIComponent(redirectTo)}` : "/cadastro"}
+            className="font-semibold text-primary"
+          >
             Criar cadastro
           </Link>
         </span>
       }
     >
-      <form className="space-y-5" onSubmit={handleSubmit((values) => mutate(values))}>
+      <form className="space-y-5" onSubmit={handleSubmit((values) => login.mutate(values))}>
+        {errorMessage ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+          >
+            {errorMessage}
+          </div>
+        ) : null}
         <div className="space-y-2">
           <Label htmlFor="usernameOrEmail">Email ou username</Label>
           <Input
@@ -64,8 +83,8 @@ export function LoginForm() {
             <p className="text-sm text-rose-500">{errors.password.message}</p>
           ) : null}
         </div>
-        <Button type="submit" size="lg" className="w-full" disabled={isPending}>
-          {isPending ? "Entrando..." : "Entrar na plataforma"}
+        <Button type="submit" size="lg" className="w-full" disabled={login.isPending}>
+          {login.isPending ? "Entrando..." : "Entrar na plataforma"}
         </Button>
       </form>
     </AuthShell>

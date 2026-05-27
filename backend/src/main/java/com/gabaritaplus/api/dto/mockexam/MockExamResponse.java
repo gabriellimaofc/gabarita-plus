@@ -10,6 +10,13 @@ public record MockExamResponse(
         int durationMinutes,
         boolean finished,
         BigDecimal finalScore,
+        int questionCount,
+        int answeredCount,
+        int correctCount,
+        int incorrectCount,
+        int unansweredCount,
+        Long timeSpentSeconds,
+        OffsetDateTime finishedAt,
         List<MockExamQuestionResponse> questions,
         OffsetDateTime createdAt
 ) {

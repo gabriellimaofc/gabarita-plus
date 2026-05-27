@@ -2,12 +2,12 @@ import type { PageMetadata } from "@/types/api";
 
 export type DifficultyLevel = "EASY" | "MEDIUM" | "HARD";
 export type MasteryStatus = "NEW" | "LEARNING" | "REVIEW" | "MASTERED";
+export type ReviewPriority = "HIGH" | "MEDIUM" | "LOW";
 
 export interface Alternative {
   id: number;
   letter: string;
   text: string;
-  correct: boolean;
 }
 
 export interface Question {
@@ -66,9 +66,19 @@ export interface AnswerQuestionResult {
   questionId: number;
   chosenAlternative: string;
   correct: boolean;
+  correctAlternative: string;
+  explanation: string | null;
   attemptNumber: number;
   timeSpentSeconds: number;
   answeredAt: string;
+}
+
+export interface ErrorNotebookFilters {
+  subject?: string;
+  topic?: string;
+  difficulty?: DifficultyLevel | "";
+  masteryStatus?: MasteryStatus | "";
+  priority?: ReviewPriority | "";
 }
 
 export interface ErrorNotebookEntry {
@@ -76,9 +86,17 @@ export interface ErrorNotebookEntry {
   questionId: number;
   questionTitle: string;
   subject: string;
+  topic: string;
+  difficulty: DifficultyLevel;
   errorCount: number;
+  lastErrorAt: string | null;
   lastReviewedAt: string | null;
   nextReviewAt: string | null;
   masteryStatus: MasteryStatus;
+  priority: ReviewPriority;
   updatedAt: string;
+}
+
+export interface UpdateErrorNotebookStatusPayload {
+  masteryStatus: MasteryStatus;
 }

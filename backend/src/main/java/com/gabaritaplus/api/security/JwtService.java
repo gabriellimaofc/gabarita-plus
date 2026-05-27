@@ -2,14 +2,18 @@ package com.gabaritaplus.api.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
@@ -19,8 +23,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
+@Slf4j
 @Service
 public class JwtService {
+
+    private static final int MINIMUM_SECRET_BYTES = 32;
+    private static final int MINIMUM_COMPATIBILITY_CHARS = 16;
 
     @Value("${app.jwt.secret}")
     private String jwtSecret;
@@ -30,6 +38,14 @@ public class JwtService {
 
     @Value("${app.jwt.refresh-token-expiration-days}")
     private long refreshTokenExpirationDays;
+
+    private volatile SecretKey signingKey;
+
+    @PostConstruct
+    void validateConfiguration() {
+        SecretKey key = getSigningKey();
+        log.info("Configuracao JWT carregada com sucesso. keyLengthBytes={}", key.getEncoded().length);
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -86,8 +102,55 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(java.util.Base64.getEncoder().encodeToString(jwtSecret.getBytes()));
-        return Keys.hmacShaKeyFor(keyBytes);
+        SecretKey currentKey = signingKey;
+        if (currentKey != null) {
+            return currentKey;
+        }
+
+        synchronized (this) {
+            if (signingKey == null) {
+                signingKey = Keys.hmacShaKeyFor(resolveKeyBytes(jwtSecret));
+            }
+            return signingKey;
+        }
+    }
+
+    private byte[] resolveKeyBytes(String configuredSecret) {
+        if (configuredSecret == null || configuredSecret.isBlank()) {
+            throw new IllegalStateException("JWT secret nao configurado.");
+        }
+
+        String sanitizedSecret = configuredSecret.trim();
+        byte[] rawBytes = sanitizedSecret.getBytes(StandardCharsets.UTF_8);
+        if (rawBytes.length >= MINIMUM_SECRET_BYTES) {
+            return rawBytes;
+        }
+
+        if (sanitizedSecret.startsWith("base64:")) {
+            byte[] decodedBytes = java.util.Base64.getDecoder().decode(sanitizedSecret.substring("base64:".length()));
+            if (decodedBytes.length < MINIMUM_SECRET_BYTES) {
+                throw new IllegalStateException("JWT secret em base64 precisa gerar pelo menos 32 bytes.");
+            }
+            return decodedBytes;
+        }
+
+        if (rawBytes.length < MINIMUM_COMPATIBILITY_CHARS) {
+            throw new IllegalStateException("JWT secret precisa ter pelo menos 32 bytes ou usar o formato base64:...");
+        }
+
+        log.warn(
+                "JWT secret com menos de 32 bytes detectado. Aplicando derivacao SHA-256 por compatibilidade. " +
+                        "Rotacione o segredo para um valor aleatorio com 32+ bytes ou use base64:..."
+        );
+        return sha256(rawBytes);
+    }
+
+    private byte[] sha256(byte[] input) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(input);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 nao disponivel para derivacao da chave JWT.", exception);
+        }
     }
 
     private Collection<String> extractRoles(Collection<? extends GrantedAuthority> authorities) {
