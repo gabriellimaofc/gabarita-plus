@@ -4,6 +4,8 @@ import com.gabaritaplus.api.entity.Question;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,4 +32,6 @@ public interface QuestionRepository extends JpaRepository<Question, Long>, JpaSp
     );
 
     List<Question> findByImportStatusIn(Collection<QuestionImportStatus> statuses);
+
+    Page<Question> findByImportStatusIn(Collection<QuestionImportStatus> statuses, Pageable pageable);
 }

@@ -107,6 +107,19 @@ public class QuestionService {
         ));
     }
 
+    public Page<QuestionResponse> listReviewQuestions(Pageable pageable) {
+        return questionRepository.findByImportStatusIn(reviewableStatuses(), pageable)
+                .map(questionMapper::toResponse);
+    }
+
+    public QuestionResponse getReviewQuestion(Long id) {
+        Question question = getQuestionEntity(id);
+        if (!reviewableStatuses().contains(question.getImportStatus())) {
+            throw new ResourceNotFoundException("Questao nao encontrada em revisao.");
+        }
+        return questionMapper.toResponse(question);
+    }
+
     @Transactional
     public void delete(Long id) {
         Question question = getQuestionEntity(id);
@@ -415,6 +428,15 @@ public class QuestionService {
 
     private String normalizeAlternative(String chosenAlternative) {
         return chosenAlternative.trim().toUpperCase();
+    }
+
+    private List<QuestionImportStatus> reviewableStatuses() {
+        return List.of(
+                QuestionImportStatus.DRAFT,
+                QuestionImportStatus.NEEDS_REVIEW,
+                QuestionImportStatus.VALIDATED,
+                QuestionImportStatus.INVALID
+        );
     }
 
     private void updateErrorNotebook(User user, Question question, boolean correct) {

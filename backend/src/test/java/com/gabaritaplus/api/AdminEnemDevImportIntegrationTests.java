@@ -2,6 +2,10 @@ package com.gabaritaplus.api;
 
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevAlternativeResponse;
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevQuestionResponse;
+import com.gabaritaplus.api.entity.Question;
+import com.gabaritaplus.api.entity.enums.DifficultyLevel;
+import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
+import com.gabaritaplus.api.repository.QuestionRepository;
 import com.gabaritaplus.api.service.importer.EnemDevApiClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +21,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.Map;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,6 +42,9 @@ class AdminEnemDevImportIntegrationTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private QuestionRepository questionRepository;
 
     @MockBean
     private EnemDevApiClient enemDevApiClient;
@@ -87,7 +96,64 @@ class AdminEnemDevImportIntegrationTests {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void reviewEndpointsListAndDetailNeedReviewQuestions() throws Exception {
+        Question question = buildReviewQuestion();
+        Question saved = questionRepository.save(question);
+
+        mockMvc.perform(get("/admin/import/questions/review"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].id", hasItem(saved.getId().intValue())))
+                .andExpect(jsonPath("$.data[0].importStatus").value("NEEDS_REVIEW"))
+                .andExpect(jsonPath("$.data[0].source").value("ENEM_DEV"))
+                .andExpect(jsonPath("$.data[0].validatedAgainstOfficialSource").value(false));
+
+        mockMvc.perform(get("/admin/import/questions/review/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(saved.getId()))
+                .andExpect(jsonPath("$.data.importStatus").value("NEEDS_REVIEW"))
+                .andExpect(jsonPath("$.data.source").value("ENEM_DEV"))
+                .andExpect(jsonPath("$.data.externalProvider").value("enem.dev"))
+                .andExpect(jsonPath("$.data.validatedAgainstOfficialSource").value(false));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void reviewEndpointsRequireAdminRole() throws Exception {
+        mockMvc.perform(get("/admin/import/questions/review"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/admin/import/questions/review/1"))
+                .andExpect(status().isForbidden());
+    }
+
     private String asJson(Object payload) throws Exception {
         return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(payload);
+    }
+
+    private Question buildReviewQuestion() {
+        Question question = new Question();
+        question.setTitle("Questao em revisao ENEM_DEV");
+        question.setStatement("Observe o grafico e responda.");
+        question.setSubject("Linguagens");
+        question.setTopic("A classificar");
+        question.setDifficulty(DifficultyLevel.MEDIUM);
+        question.setYear(2023);
+        question.setExam("ENEM");
+        question.setCorrectAlternative("A");
+        question.setSource("ENEM_DEV");
+        question.setSourceUrl("https://api.enem.dev/v1/exams/2023/questions/1");
+        question.setSourceExam("ENEM");
+        question.setSourceYear(2023);
+        question.setSourceQuestionNumber(1);
+        question.setSourceBookColor("UNKNOWN");
+        question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+        question.setValidatedAgainstOfficialSource(false);
+        question.setExternalProvider("enem.dev");
+        question.setExternalProviderUrl("https://enem.dev");
+        question.setExternalQuestionId("2023:1:linguagens:default");
+        question.setStatementHash("review-test-hash");
+        return question;
     }
 }

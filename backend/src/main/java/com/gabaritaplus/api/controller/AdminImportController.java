@@ -4,10 +4,16 @@ import com.gabaritaplus.api.dto.common.ApiResponse;
 import com.gabaritaplus.api.dto.importer.ImportBatchResponse;
 import com.gabaritaplus.api.dto.importer.ImportQuestionsPayload;
 import com.gabaritaplus.api.dto.importer.ImportReportResponse;
+import com.gabaritaplus.api.dto.question.QuestionResponse;
+import com.gabaritaplus.api.service.QuestionService;
 import com.gabaritaplus.api.service.importer.QuestionImportService;
+import com.gabaritaplus.api.util.PageUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,6 +36,7 @@ import java.util.List;
 public class AdminImportController {
 
     private final QuestionImportService questionImportService;
+    private final QuestionService questionService;
 
     @PostMapping(value = "/questions/json", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ImportReportResponse>> importJson(@RequestParam("file") MultipartFile file) {
@@ -68,6 +75,29 @@ public class AdminImportController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Lote de importacao carregado com sucesso.",
                 questionImportService.getBatch(id)
+        ));
+    }
+
+    @GetMapping("/questions/review")
+    public ResponseEntity<ApiResponse<List<QuestionResponse>>> listReviewQuestions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction
+    ) {
+        Page<QuestionResponse> result = questionService.listReviewQuestions(PageRequest.of(page, size, Sort.by(direction, sortBy)));
+        return ResponseEntity.ok(ApiResponse.success(
+                "Questoes em revisao carregadas com sucesso.",
+                result.getContent(),
+                PageUtils.metadata(result)
+        ));
+    }
+
+    @GetMapping("/questions/review/{id}")
+    public ResponseEntity<ApiResponse<QuestionResponse>> getReviewQuestion(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Questao em revisao carregada com sucesso.",
+                questionService.getReviewQuestion(id)
         ));
     }
 }
