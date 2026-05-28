@@ -35,10 +35,10 @@ public class Question extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String statement;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "statement_html", columnDefinition = "TEXT")
     private String statementHtml;
 
-    @Column(length = 500)
+    @Column(name = "image_url", length = 500)
     private String imageUrl;
 
     @Column(nullable = false, length = 80)
@@ -69,41 +69,45 @@ public class Question extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String explanation;
 
-    @Column(nullable = false, length = 1)
+    @Column(name = "correct_alternative", nullable = false, length = 1)
     private String correctAlternative;
 
     @Column(nullable = false, length = 80)
     private String source = "PLATFORM";
 
-    @Column(nullable = false, length = 1000)
+    @Column(name = "source_url", nullable = false, length = 1000)
     private String sourceUrl = "internal://legacy-question";
 
-    @Column(nullable = false, length = 120)
+    @Column(name = "source_exam", nullable = false, length = 120)
     private String sourceExam;
 
-    @Column(nullable = false)
+    @Column(name = "source_year", nullable = false)
     private Integer sourceYear;
 
+    @Column(name = "source_question_number")
     private Integer sourceQuestionNumber;
 
-    @Column(length = 40)
+    @Column(name = "source_book_color", length = 40)
     private String sourceBookColor;
 
+    @Column(name = "source_day")
     private Integer sourceDay;
 
+    @Column(name = "source_page")
     private Integer sourcePage;
 
+    @Column(name = "imported_at")
     private OffsetDateTime importedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "import_batch_id")
     private ImportBatch importBatch;
 
-    @Column(nullable = false, length = 128)
+    @Column(name = "statement_hash", nullable = false, length = 128)
     private String statementHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(name = "import_status", nullable = false, length = 30)
     private QuestionImportStatus importStatus = QuestionImportStatus.PUBLISHED;
 
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)

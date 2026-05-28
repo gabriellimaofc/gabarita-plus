@@ -35,23 +35,28 @@ public class QuestionAsset extends BaseEntity {
     @Column(length = 1000)
     private String url;
 
-    @Column(length = 1000)
+    @Column(name = "storage_path", length = 1000)
     private String storagePath;
 
-    @Column(length = 255)
+    @Column(name = "original_file_name", length = 255)
     private String originalFileName;
 
+    @Column(name = "source_page")
     private Integer sourcePage;
 
+    @Column(name = "crop_x")
     private Integer cropX;
 
+    @Column(name = "crop_y")
     private Integer cropY;
 
+    @Column(name = "crop_width")
     private Integer cropWidth;
 
+    @Column(name = "crop_height")
     private Integer cropHeight;
 
-    @Column(length = 500)
+    @Column(name = "alt_text", length = 500)
     private String altText;
 
     @Column(length = 500)

@@ -19,10 +19,10 @@ import java.time.OffsetDateTime;
 @Table(name = "import_batches")
 public class ImportBatch extends BaseEntity {
 
-    @Column(nullable = false, length = 120)
+    @Column(name = "source_name", nullable = false, length = 120)
     private String sourceName;
 
-    @Column(nullable = false, length = 1000)
+    @Column(name = "source_url", nullable = false, length = 1000)
     private String sourceUrl;
 
     @Column(nullable = false, length = 120)
@@ -35,26 +35,27 @@ public class ImportBatch extends BaseEntity {
     @Column(nullable = false, length = 20)
     private ImportBatchStatus status;
 
-    @Column(nullable = false)
+    @Column(name = "total_items", nullable = false)
     private Integer totalItems = 0;
 
-    @Column(nullable = false)
+    @Column(name = "imported_items", nullable = false)
     private Integer importedItems = 0;
 
-    @Column(nullable = false)
+    @Column(name = "skipped_items", nullable = false)
     private Integer skippedItems = 0;
 
-    @Column(nullable = false)
+    @Column(name = "failed_items", nullable = false)
     private Integer failedItems = 0;
 
-    @Column(nullable = false)
+    @Column(name = "needs_review_items", nullable = false)
     private Integer needsReviewItems = 0;
 
-    @Column(nullable = false)
+    @Column(name = "started_at", nullable = false)
     private OffsetDateTime startedAt;
 
+    @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "error_report", columnDefinition = "TEXT")
     private String errorReport;
 }
