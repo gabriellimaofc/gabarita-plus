@@ -40,7 +40,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long>, JpaSp
 
     Page<Question> findByImportStatusIn(Collection<QuestionImportStatus> statuses, Pageable pageable);
 
-    @Query("""
+    @Query(value = """
             select new com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse(
                 q.id,
                 q.title,
@@ -70,6 +70,13 @@ public interface QuestionRepository extends JpaRepository<Question, Long>, JpaSp
             group by q.id, q.title, q.source, q.sourceYear, q.sourceQuestionNumber, q.sourceBookColor,
                      q.sourceDay, q.importStatus, q.validatedAgainstOfficialSource, q.externalProvider,
                      batch.id, q.subject, q.difficulty, q.createdAt, q.importedAt
+            """,
+            countQuery = """
+            select count(q.id)
+            from Question q
+            where q.importStatus in :statuses
+              and (:source is null or lower(q.source) = lower(:source))
+              and (:year is null or q.sourceYear = :year)
             """)
     Page<AdminImportedQuestionReviewSummaryResponse> findReviewSummaries(
             @Param("statuses") Collection<QuestionImportStatus> statuses,
