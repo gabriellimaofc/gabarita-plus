@@ -23,12 +23,13 @@ function Write-Step {
 function Read-ErrorResponse {
     param([System.Exception]$Exception)
 
-    if (-not $Exception.Response) {
+    $responseProperty = $Exception.PSObject.Properties["Response"]
+    if (-not $responseProperty -or -not $responseProperty.Value) {
         return $Exception.Message
     }
 
     $reader = New-Object System.IO.StreamReader(
-        $Exception.Response.GetResponseStream(),
+        $responseProperty.Value.GetResponseStream(),
         [System.Text.Encoding]::UTF8,
         $true
     )
@@ -47,19 +48,47 @@ function Invoke-ApiJson {
         [object]$Body = $null
     )
 
-    $params = @{
-        Method = $Method
-        Uri = $Uri
-        Headers = $Headers
+    $request = [System.Net.HttpWebRequest]::Create($Uri)
+    $request.Method = $Method
+    $request.Accept = "application/json"
+    foreach ($entry in $Headers.GetEnumerator()) {
+        if ($entry.Key -ieq "Authorization") {
+            $request.Headers["Authorization"] = $entry.Value
+            continue
+        }
+        $request.Headers[$entry.Key] = $entry.Value
     }
 
     if ($null -ne $Body) {
-        $params.ContentType = "application/json"
-        $params.Body = ($Body | ConvertTo-Json -Depth 50)
+        $jsonBody = ($Body | ConvertTo-Json -Depth 50)
+        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
+        $request.ContentType = "application/json; charset=utf-8"
+        $request.ContentLength = $bodyBytes.Length
+        $requestStream = $request.GetRequestStream()
+        try {
+            $requestStream.Write($bodyBytes, 0, $bodyBytes.Length)
+        } finally {
+            $requestStream.Dispose()
+        }
     }
 
     try {
-        return Invoke-RestMethod @params
+        $response = $request.GetResponse()
+        $reader = New-Object System.IO.StreamReader(
+            $response.GetResponseStream(),
+            [System.Text.Encoding]::UTF8,
+            $true
+        )
+        try {
+            $content = $reader.ReadToEnd()
+        } finally {
+            $reader.Dispose()
+            $response.Dispose()
+        }
+        if ([string]::IsNullOrWhiteSpace($content)) {
+            return $null
+        }
+        return $content | ConvertFrom-Json
     } catch {
         throw "Falha em $Method $Uri`: $(Read-ErrorResponse $_.Exception)"
     }
