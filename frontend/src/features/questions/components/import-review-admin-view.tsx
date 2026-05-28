@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { AlertTriangle, CheckCircle2, ExternalLink, FileSearch, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, ExternalLink, FileSearch, ShieldAlert } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/common/empty-state";
@@ -104,9 +103,12 @@ function markdownToHtml(markdown: string | null) {
     const token = `${imageTokenPrefix}${imageIndex++}__`;
     const safeAlt = escapeHtml(String(alt ?? "").trim() || "Imagem referenciada no enunciado");
     const safeSrc = escapeHtml(String(src ?? "").trim());
+    const isBroken = safeSrc.toLowerCase().includes("broken-image");
     imageMap.set(
       token,
-      `<figure class="space-y-2 rounded-[24px] border border-border/70 bg-background/70 p-3"><img src="${safeSrc}" alt="${safeAlt}" class="max-h-[420px] w-full object-contain rounded-[18px] bg-muted/20" /><figcaption class="text-xs text-muted-foreground">${safeAlt}</figcaption></figure>`,
+      isBroken
+        ? `<div class="rounded-[24px] border border-dashed border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"><strong>Imagem indisponivel</strong><p class="mt-2">${safeAlt}</p><p class="mt-1 break-all text-xs">${safeSrc}</p></div>`
+        : `<figure class="space-y-2 rounded-[24px] border border-border/70 bg-background/70 p-3"><img src="${safeSrc}" alt="${safeAlt}" class="max-h-[420px] w-full object-contain rounded-[18px] bg-muted/20" /><figcaption class="text-xs text-muted-foreground">${safeAlt}</figcaption></figure>`,
     );
     return `\n\n${token}\n\n`;
   });
@@ -196,6 +198,20 @@ function canPublish(question: ReviewQuestionDetail) {
   );
 }
 
+function QuestionRawText({ value }: { value: string }) {
+  return (
+    <details className="rounded-[22px] border border-border/70 bg-background/60">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold">
+        Ver texto bruto
+        <ChevronDown className="size-4 text-muted-foreground" />
+      </summary>
+      <div className="border-t border-border/70 p-4">
+        <Textarea value={value} readOnly className="min-h-40 text-xs leading-6" />
+      </div>
+    </details>
+  );
+}
+
 function ReviewCard({
   item,
   selected,
@@ -270,6 +286,8 @@ export function ImportReviewAdminView() {
   const validateOfficial = useValidateOfficialSource();
   const publishQuestion = usePublishReviewQuestion();
 
+  const reviewItems = reviewQuery.data?.items ?? [];
+
   useEffect(() => {
     if (!reviewQuery.data?.items.length) {
       setSelectedId(null);
@@ -299,6 +317,12 @@ export function ImportReviewAdminView() {
     [detailQuery.data],
   );
 
+  const selectedIndex = reviewItems.findIndex((item) => item.id === selectedId);
+  const previousItem = selectedIndex > 0 ? reviewItems[selectedIndex - 1] : null;
+  const nextItem = selectedIndex >= 0 && selectedIndex < reviewItems.length - 1
+    ? reviewItems[selectedIndex + 1]
+    : null;
+
   if (hydrated && !isAdmin) {
     return (
       <ErrorState
@@ -311,6 +335,42 @@ export function ImportReviewAdminView() {
   const selectedQuestion = detailQuery.data;
   const renderableStatementHtml =
     selectedQuestion?.statementHtml ?? markdownToHtml(selectedQuestion?.statement ?? null);
+
+  async function moveToNextQuestion(preferredId?: number | null) {
+    if (preferredId) {
+      setSelectedId(preferredId);
+      return;
+    }
+    if (nextItem) {
+      setSelectedId(nextItem.id);
+      return;
+    }
+    if (reviewItems.length > 0) {
+      setSelectedId(reviewItems[0].id);
+    }
+  }
+
+  async function handleStatusAndContinue(importStatus: "NEEDS_REVIEW" | "INVALID" | "VALIDATED") {
+    if (!selectedQuestion) {
+      return;
+    }
+    const updated = await updateStatus.mutateAsync({
+      id: selectedQuestion.id,
+      payload: { importStatus },
+    });
+    await moveToNextQuestion(nextItem?.id ?? (updated.id === selectedQuestion.id ? null : updated.id));
+  }
+
+  async function handleValidateAndContinue() {
+    if (!selectedQuestion) {
+      return;
+    }
+    await validateOfficial.mutateAsync({
+      id: selectedQuestion.id,
+      payload: validationForm,
+    });
+    await moveToNextQuestion(nextItem?.id);
+  }
 
   return (
     <div className="space-y-6">
@@ -390,8 +450,8 @@ export function ImportReviewAdminView() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card className="overflow-hidden">
+      <div className="grid items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
+        <Card className="overflow-hidden xl:sticky xl:top-24">
           <CardHeader className="border-b border-border/70">
             <div className="flex items-center justify-between gap-3">
               <CardTitle>Fila de revisao</CardTitle>
@@ -412,7 +472,7 @@ export function ImportReviewAdminView() {
             ) : reviewQuery.data?.items.length ? (
               <>
                 <div className="space-y-3">
-                  {reviewQuery.data.items.map((item) => (
+                  {reviewItems.map((item) => (
                     <ReviewCard
                       key={item.id}
                       item={item}
@@ -466,7 +526,7 @@ export function ImportReviewAdminView() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {selectedId === null ? (
             <EmptyState
               title="Selecione uma questao"
@@ -480,86 +540,106 @@ export function ImportReviewAdminView() {
             />
           ) : selectedQuestion ? (
             <>
-              <Card className="overflow-hidden">
+              <Card className="min-w-0 overflow-hidden">
                 <CardHeader className="border-b border-border/70 bg-gradient-to-r from-background via-background to-primary/5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant={statusBadgeVariant(selectedQuestion.importStatus)}>
-                          {selectedQuestion.importStatus}
-                        </Badge>
-                        <Badge variant="outline">{selectedQuestion.source}</Badge>
-                        <Badge variant="outline">{selectedQuestion.subject}</Badge>
-                        <Badge
-                          variant={
-                            selectedQuestion.validatedAgainstOfficialSource
-                              ? "success"
-                              : "warning"
-                          }
-                        >
-                          {selectedQuestion.validatedAgainstOfficialSource
-                            ? "Fonte oficial validada"
-                            : "Pendente INEP"}
-                        </Badge>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="space-y-3 min-w-0">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant={statusBadgeVariant(selectedQuestion.importStatus)}>
+                            {selectedQuestion.importStatus}
+                          </Badge>
+                          <Badge variant="outline">{selectedQuestion.source}</Badge>
+                          <Badge variant="outline">{selectedQuestion.subject}</Badge>
+                          <Badge
+                            variant={
+                              selectedQuestion.validatedAgainstOfficialSource
+                                ? "success"
+                                : "warning"
+                            }
+                          >
+                            {selectedQuestion.validatedAgainstOfficialSource
+                              ? "Fonte oficial validada"
+                              : "Pendente INEP"}
+                          </Badge>
+                        </div>
+                        <CardTitle className="break-words text-2xl">{selectedQuestion.title}</CardTitle>
+                        <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
+                          <p>Ano: {selectedQuestion.sourceYear ?? "-"}</p>
+                          <p>Numero: {selectedQuestion.sourceQuestionNumber ?? "-"}</p>
+                          <p>Caderno: {selectedQuestion.sourceBookColor ?? "-"}</p>
+                          <p>Dia: {selectedQuestion.sourceDay ?? "-"}</p>
+                          <p>Import batch: {selectedQuestion.importBatchId ?? "-"}</p>
+                          <p>Dificuldade: {selectedQuestion.difficulty}</p>
+                        </div>
                       </div>
-                      <CardTitle className="text-2xl">{selectedQuestion.title}</CardTitle>
-                      <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                        <p>Ano: {selectedQuestion.sourceYear ?? "-"}</p>
-                        <p>Numero: {selectedQuestion.sourceQuestionNumber ?? "-"}</p>
-                        <p>Caderno: {selectedQuestion.sourceBookColor ?? "-"}</p>
-                        <p>Dia: {selectedQuestion.sourceDay ?? "-"}</p>
-                        <p>Import batch: {selectedQuestion.importBatchId ?? "-"}</p>
-                        <p>Dificuldade: {selectedQuestion.difficulty}</p>
+                      <div className="flex flex-wrap gap-2 xl:max-w-[420px] xl:justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={() => previousItem && setSelectedId(previousItem.id)}
+                          disabled={!previousItem}
+                        >
+                          <ArrowLeft className="size-4" />
+                          Anterior
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => nextItem && setSelectedId(nextItem.id)}
+                          disabled={!nextItem}
+                        >
+                          Proxima
+                          <ArrowRight className="size-4" />
+                        </Button>
                       </div>
                     </div>
+
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          updateStatus.mutate({
-                            id: selectedQuestion.id,
-                            payload: { importStatus: "NEEDS_REVIEW" },
-                          })
-                        }
-                        disabled={updateStatus.isPending}
-                      >
-                        Manter em revisao
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          updateStatus.mutate({
-                            id: selectedQuestion.id,
-                            payload: { importStatus: "INVALID" },
-                          })
-                        }
-                        disabled={updateStatus.isPending}
-                      >
-                        Marcar como invalida
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() =>
-                          updateStatus.mutate({
-                            id: selectedQuestion.id,
-                            payload: { importStatus: "VALIDATED" },
-                          })
-                        }
-                        disabled={updateStatus.isPending}
-                      >
-                        Validar
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          if (!window.confirm("Publicar esta questao para os alunos?")) {
-                            return;
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            updateStatus.mutate({
+                              id: selectedQuestion.id,
+                              payload: { importStatus: "NEEDS_REVIEW" },
+                            })
                           }
-                          publishQuestion.mutate(selectedQuestion.id);
-                        }}
-                        disabled={!canPublish(selectedQuestion) || publishQuestion.isPending}
-                      >
-                        Publicar
-                      </Button>
+                          disabled={updateStatus.isPending}
+                        >
+                          Manter em revisao
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => void handleStatusAndContinue("NEEDS_REVIEW")}
+                          disabled={updateStatus.isPending}
+                        >
+                          Salvar e proxima
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => void handleStatusAndContinue("INVALID")}
+                          disabled={updateStatus.isPending}
+                        >
+                          Marcar invalida e proxima
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => void handleValidateAndContinue()}
+                          disabled={validateOfficial.isPending}
+                        >
+                          Validar e continuar
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (!window.confirm("Publicar esta questao para os alunos?")) {
+                              return;
+                            }
+                            publishQuestion.mutate(selectedQuestion.id);
+                          }}
+                          disabled={!canPublish(selectedQuestion) || publishQuestion.isPending}
+                        >
+                          Publicar
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
@@ -592,28 +672,28 @@ export function ImportReviewAdminView() {
                     </div>
                   )}
 
-                  <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_360px]">
-                    <div className="space-y-6">
-                      <Card className="border-border/70 bg-background/60">
+                  <div className="grid min-w-0 items-start gap-6 2xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
+                    <div className="min-w-0 space-y-6">
+                      <Card className="min-w-0 border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Enunciado completo</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="min-w-0 space-y-4">
                           <QuestionContent
                             statement={selectedQuestion.statement}
                             statementHtml={renderableStatementHtml}
                             assets={selectedQuestion.assets}
                             sourceLabel="Assets vinculados"
                           />
-                          <Textarea value={selectedQuestion.statement} readOnly className="min-h-36" />
+                          <QuestionRawText value={selectedQuestion.statement} />
                         </CardContent>
                       </Card>
 
-                      <Card className="border-border/70 bg-background/60">
+                      <Card className="min-w-0 border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Alternativas e gabarito</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="min-w-0 space-y-4">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="outline">
                               Gabarito: {selectedQuestion.correctAlternative ?? "-"}
@@ -626,7 +706,7 @@ export function ImportReviewAdminView() {
                             {selectedQuestion.alternatives.map((alternative) => (
                               <div
                                 key={alternative.id}
-                                className="rounded-[22px] border border-border/70 bg-background/70 p-4"
+                                className="min-w-0 rounded-[22px] border border-border/70 bg-background/70 p-4"
                               >
                                 <p className="mb-2 text-sm font-semibold">
                                   Alternativa {alternative.letter}
@@ -647,59 +727,60 @@ export function ImportReviewAdminView() {
                       </Card>
                     </div>
 
-                    <div className="space-y-6">
-                      <Card className="border-border/70 bg-background/60">
+                    <div className="min-w-0 space-y-6 2xl:sticky 2xl:top-24">
+                      <Card className="min-w-0 border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Auditoria e origem</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4 text-sm">
-                          <div className="space-y-2">
-                            <p className="font-semibold">Origem externa</p>
-                            <p className="text-muted-foreground">
-                              Provider: {selectedQuestion.externalProvider ?? "-"}
-                            </p>
-                            {selectedQuestion.sourceUrl ? (
-                              <Link
-                                href={selectedQuestion.sourceUrl}
-                                target="_blank"
-                                className="inline-flex items-center gap-1 text-primary"
-                              >
-                                Abrir sourceUrl
-                                <ExternalLink className="size-3.5" />
-                              </Link>
-                            ) : null}
+                          <div className="grid gap-3">
+                            <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Origem</p>
+                              <div className="mt-3 space-y-2 text-muted-foreground">
+                                <p className="break-all">source: {selectedQuestion.source}</p>
+                                <p className="break-all">externalProvider: {selectedQuestion.externalProvider ?? "-"}</p>
+                                <p>sourceBookColor: {selectedQuestion.sourceBookColor ?? "-"}</p>
+                                <p>sourceDay: {selectedQuestion.sourceDay ?? "-"}</p>
+                                <p>importBatchId: {selectedQuestion.importBatchId ?? "-"}</p>
+                                {selectedQuestion.sourceUrl ? (
+                                  <a
+                                    href={selectedQuestion.sourceUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 break-all text-primary"
+                                  >
+                                    Abrir sourceUrl
+                                    <ExternalLink className="size-3.5" />
+                                  </a>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Fonte oficial</p>
+                              <div className="mt-3 space-y-2 text-muted-foreground">
+                                <p>validatedAgainstOfficialSource: {String(selectedQuestion.validatedAgainstOfficialSource)}</p>
+                                <p>validatedAt: {selectedQuestion.validatedAt ?? "-"}</p>
+                                <p className="break-all">officialSourceUrl: {selectedQuestion.officialSourceUrl ?? "-"}</p>
+                                <p className="break-all">officialPdfUrl: {selectedQuestion.officialPdfUrl ?? "-"}</p>
+                                <p className="break-all">officialAnswerKeyUrl: {selectedQuestion.officialAnswerKeyUrl ?? "-"}</p>
+                                <p>officialPage: {selectedQuestion.officialPage ?? "-"}</p>
+                              </div>
+                            </div>
+
+                            <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Checks</p>
+                              <div className="mt-3 space-y-2 text-muted-foreground">
+                                <p className="break-all">statementHash: {selectedQuestion.statementHash}</p>
+                                <p>alternativesCount: {selectedQuestion.alternativesCount}</p>
+                                <p>assetsCount: {selectedQuestion.assetsCount}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="space-y-2 border-t border-border/70 pt-4">
-                            <p className="font-semibold">Fonte oficial</p>
-                            <p className="text-muted-foreground">
-                              officialSourceUrl: {selectedQuestion.officialSourceUrl ?? "-"}
-                            </p>
-                            <p className="text-muted-foreground">
-                              officialPdfUrl: {selectedQuestion.officialPdfUrl ?? "-"}
-                            </p>
-                            <p className="text-muted-foreground">
-                              officialAnswerKeyUrl: {selectedQuestion.officialAnswerKeyUrl ?? "-"}
-                            </p>
-                            <p className="text-muted-foreground">
-                              Pagina oficial: {selectedQuestion.officialPage ?? "-"}
-                            </p>
-                          </div>
-                          <div className="space-y-2 border-t border-border/70 pt-4">
-                            <p className="font-semibold">Checks rapidos</p>
-                            <p className="text-muted-foreground">
-                              statementHash: {selectedQuestion.statementHash}
-                            </p>
-                            <p className="text-muted-foreground">
-                              validatedAt: {selectedQuestion.validatedAt ?? "-"}
-                            </p>
-                            <p className="text-muted-foreground">
-                              assetsCount: {selectedQuestion.assetsCount}
-                            </p>
-                          </div>
-                        </CardContent>
+                      </CardContent>
                       </Card>
 
-                      <Card className="border-border/70 bg-background/60">
+                      <Card className="min-w-0 border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Validacao manual com INEP</CardTitle>
                         </CardHeader>
