@@ -228,3 +228,14 @@ Para auditar uma questao importada, confira:
 ## Principio operacional
 
 Importar menos questoes, mas completas e rastreaveis, e melhor do que publicar uma base grande com itens quebrados.
+
+## Fonte auxiliar por API
+
+Existe tambem uma estrategia complementar documentada em [ENEM_API_IMPORT_STRATEGY.md](/C:/Users/studioorla/Desktop/gabarita-plus/docs/ENEM_API_IMPORT_STRATEGY.md) para usar `enem.dev` apenas como acelerador operacional.
+
+Regras dessa estrategia:
+
+- `enem.dev` nao e fonte oficial de publicacao
+- questoes vindas de API externa entram em `NEEDS_REVIEW`
+- validacao oficial continua dependendo do INEP
+- a publicacao so deve acontecer depois da conciliacao com prova e gabarito oficiais

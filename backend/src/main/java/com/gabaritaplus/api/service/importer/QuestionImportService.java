@@ -59,17 +59,27 @@ public class QuestionImportService {
 
     @Transactional(readOnly = true)
     public ImportReportResponse dryRun(ImportQuestionsPayload payload) {
-        return process(payload.questions(), true);
+        return process(payload.questions(), true, ImportValidationMode.OFFICIAL);
+    }
+
+    @Transactional(readOnly = true)
+    public ImportReportResponse dryRunQuestions(List<ImportQuestionPayload> payloads, ImportValidationMode mode) {
+        return process(payloads, true, mode);
     }
 
     @Transactional
     public ImportReportResponse importJson(MultipartFile file) {
-        return process(readJson(file), false);
+        return process(readJson(file), false, ImportValidationMode.OFFICIAL);
     }
 
     @Transactional
     public ImportReportResponse importCsv(MultipartFile file) {
-        return process(readCsv(file), false);
+        return process(readCsv(file), false, ImportValidationMode.OFFICIAL);
+    }
+
+    @Transactional
+    public ImportReportResponse importQuestions(List<ImportQuestionPayload> payloads, ImportValidationMode mode) {
+        return process(payloads, false, mode);
     }
 
     @Transactional(readOnly = true)
@@ -87,7 +97,7 @@ public class QuestionImportService {
         return toBatchResponse(batch);
     }
 
-    private ImportReportResponse process(List<ImportQuestionPayload> payloads, boolean dryRun) {
+    private ImportReportResponse process(List<ImportQuestionPayload> payloads, boolean dryRun, ImportValidationMode mode) {
         ImportBatch batch = null;
         if (!dryRun) {
             batch = startBatch(payloads);
@@ -104,9 +114,9 @@ public class QuestionImportService {
             ImportQuestionPayload payload = payloads.get(index);
             List<String> itemMessages = new ArrayList<>();
             itemMessages.addAll(validator.validate(payload).stream().map(ConstraintViolation::getMessage).toList());
-            itemMessages.addAll(questionImportSupport.validateImportPayload(payload));
+            itemMessages.addAll(questionImportSupport.validateImportPayload(payload, mode));
 
-            QuestionImportStatus status = questionImportSupport.determineStatus(payload, itemMessages);
+            QuestionImportStatus status = questionImportSupport.determineStatus(payload, itemMessages, mode);
             String statementHash = questionImportSupport.generateStatementHash(payload.statement(), payload.statementHtml());
 
             if (isDuplicate(payload, statementHash)) {
@@ -168,6 +178,14 @@ public class QuestionImportService {
     }
 
     private boolean isDuplicate(ImportQuestionPayload payload, String statementHash) {
+        boolean sameExternalIdentity = payload.externalProvider() != null
+                && !payload.externalProvider().isBlank()
+                && payload.externalQuestionId() != null
+                && !payload.externalQuestionId().isBlank()
+                && questionRepository.existsByExternalProviderIgnoreCaseAndExternalQuestionIdIgnoreCase(
+                payload.externalProvider(),
+                payload.externalQuestionId()
+        );
         boolean sameSourceIdentity = payload.sourceBookColor() != null && payload.sourceDay() != null
                 && questionRepository.existsBySourceExamIgnoreCaseAndSourceYearAndSourceQuestionNumberAndSourceDayAndSourceBookColorIgnoreCase(
                 payload.sourceExam(),
@@ -181,7 +199,7 @@ public class QuestionImportService {
                 payload.sourceExam(),
                 payload.sourceYear()
         );
-        return sameSourceIdentity || sameHash;
+        return sameExternalIdentity || sameSourceIdentity || sameHash;
     }
 
     private ImportBatch startBatch(List<ImportQuestionPayload> payloads) {
@@ -243,6 +261,16 @@ public class QuestionImportService {
                         optional(row, "sourceBookColor"),
                         optionalInteger(row, "sourceDay"),
                         optionalInteger(row, "sourcePage"),
+                        optional(row, "officialSourceUrl"),
+                        optional(row, "officialPdfUrl"),
+                        optional(row, "officialAnswerKeyUrl"),
+                        optionalInteger(row, "officialPage"),
+                        optionalBoolean(row, "validatedAgainstOfficialSource"),
+                        optionalOffsetDateTime(row, "validatedAt"),
+                        optional(row, "externalProvider"),
+                        optional(row, "externalProviderUrl"),
+                        optional(row, "externalQuestionId"),
+                        optional(row, "externalLicense"),
                         parseAssets(optional(row, "assets")),
                         parseAlternatives(row.get("alternatives"))
                 ));
@@ -271,6 +299,16 @@ public class QuestionImportService {
     private Integer optionalInteger(CSVRecord row, String header) {
         String value = optional(row, header);
         return value == null ? null : Integer.valueOf(value);
+    }
+
+    private Boolean optionalBoolean(CSVRecord row, String header) {
+        String value = optional(row, header);
+        return value == null ? null : Boolean.valueOf(value);
+    }
+
+    private OffsetDateTime optionalOffsetDateTime(CSVRecord row, String header) {
+        String value = optional(row, header);
+        return value == null ? null : OffsetDateTime.parse(value);
     }
 
     private String emptyToNull(String value) {

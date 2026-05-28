@@ -53,6 +53,16 @@ public class QuestionMapper {
         question.setSourceBookColor(request.sourceBookColor());
         question.setSourceDay(request.sourceDay());
         question.setSourcePage(request.sourcePage());
+        question.setOfficialSourceUrl(request.officialSourceUrl());
+        question.setOfficialPdfUrl(request.officialPdfUrl());
+        question.setOfficialAnswerKeyUrl(request.officialAnswerKeyUrl());
+        question.setOfficialPage(request.officialPage());
+        question.setValidatedAgainstOfficialSource(request.validatedAgainstOfficialSource());
+        question.setValidatedAt(request.validatedAt());
+        question.setExternalProvider(request.externalProvider());
+        question.setExternalProviderUrl(request.externalProviderUrl());
+        question.setExternalQuestionId(request.externalQuestionId());
+        question.setExternalLicense(request.externalLicense());
         question.setImportStatus(request.importStatus() == null ? QuestionImportStatus.PUBLISHED : request.importStatus());
         question.setImportedAt(question.getImportedAt() == null ? OffsetDateTime.now() : question.getImportedAt());
 
@@ -154,6 +164,16 @@ public class QuestionMapper {
                 question.getSourceBookColor(),
                 question.getSourceDay(),
                 question.getSourcePage(),
+                question.getOfficialSourceUrl(),
+                question.getOfficialPdfUrl(),
+                question.getOfficialAnswerKeyUrl(),
+                question.getOfficialPage(),
+                question.getValidatedAgainstOfficialSource(),
+                question.getValidatedAt(),
+                question.getExternalProvider(),
+                question.getExternalProviderUrl(),
+                question.getExternalQuestionId(),
+                question.getExternalLicense(),
                 question.getStatementHash(),
                 question.getImportStatus(),
                 question.getExplanation(),

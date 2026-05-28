@@ -43,7 +43,7 @@ public class QuestionImportSupport {
             "a imagem",
             "a ilustracao"
     );
-    private static final List<String> BROKEN_TEXT_MARKERS = List.of("Ã§", "Ã£", "Ã©", "Ãª", "Ã³", "Ãº", "â€œ", "â€\u009d", "â€“");
+    private static final List<String> BROKEN_TEXT_MARKERS = List.of("Ã§", "Ã£", "Ã©", "Ãª", "Ã³", "Ãº", "â€œ", "â€", "â€“");
     private static final Set<String> REQUIRED_ALTERNATIVES = Set.of("A", "B", "C", "D", "E");
 
     public String generateStatementHash(String statement, String statementHtml) {
@@ -57,9 +57,24 @@ public class QuestionImportSupport {
     }
 
     public List<String> validateImportPayload(ImportQuestionPayload payload) {
+        return validateImportPayload(payload, ImportValidationMode.OFFICIAL);
+    }
+
+    public List<String> validateImportPayload(ImportQuestionPayload payload, ImportValidationMode mode) {
         List<String> errors = new ArrayList<>();
-        if (!"INEP".equalsIgnoreCase(Objects.toString(payload.source(), "").trim())) {
+        if (mode == ImportValidationMode.OFFICIAL
+                && !"INEP".equalsIgnoreCase(Objects.toString(payload.source(), "").trim())) {
             errors.add("A fonte precisa ser INEP.");
+        }
+        if (mode == ImportValidationMode.EXTERNAL_AUXILIARY
+                && Objects.toString(payload.externalProvider(), "").isBlank()) {
+            errors.add("Questoes de fonte auxiliar precisam informar o provedor externo.");
+        }
+        if (mode == ImportValidationMode.OFFICIAL && Objects.toString(payload.sourceBookColor(), "").isBlank()) {
+            errors.add("A cor do caderno de origem e obrigatoria.");
+        }
+        if (mode == ImportValidationMode.OFFICIAL && payload.sourceDay() == null) {
+            errors.add("O dia da prova de origem e obrigatorio.");
         }
 
         List<ImportAlternativePayload> alternatives = normalizeAlternativePayloads(payload.alternatives());
@@ -88,8 +103,20 @@ public class QuestionImportSupport {
     }
 
     public QuestionImportStatus determineStatus(ImportQuestionPayload payload, List<String> validationErrors) {
+        return determineStatus(payload, validationErrors, ImportValidationMode.OFFICIAL);
+    }
+
+    public QuestionImportStatus determineStatus(
+            ImportQuestionPayload payload,
+            List<String> validationErrors,
+            ImportValidationMode mode
+    ) {
         if (!validationErrors.isEmpty()) {
             return QuestionImportStatus.INVALID;
+        }
+        if (mode == ImportValidationMode.EXTERNAL_AUXILIARY
+                && !Boolean.TRUE.equals(payload.validatedAgainstOfficialSource())) {
+            return QuestionImportStatus.NEEDS_REVIEW;
         }
         if (hasBrokenText(payload.statement(), payload.statementHtml())) {
             return QuestionImportStatus.NEEDS_REVIEW;
@@ -148,6 +175,16 @@ public class QuestionImportSupport {
                 normalizeOptionalText(payload.sourceBookColor()),
                 payload.sourceDay(),
                 payload.sourcePage(),
+                normalizeOptionalText(payload.officialSourceUrl()),
+                normalizeOptionalText(payload.officialPdfUrl()),
+                normalizeOptionalText(payload.officialAnswerKeyUrl()),
+                payload.officialPage(),
+                payload.validatedAgainstOfficialSource(),
+                payload.validatedAt(),
+                normalizeOptionalText(payload.externalProvider()),
+                normalizeOptionalText(payload.externalProviderUrl()),
+                normalizeOptionalText(payload.externalQuestionId()),
+                normalizeOptionalText(payload.externalLicense()),
                 status,
                 mapAssets(payload.assets()),
                 alternatives

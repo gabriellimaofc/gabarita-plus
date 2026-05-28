@@ -96,6 +96,36 @@ public class Question extends BaseEntity {
     @Column(name = "source_page")
     private Integer sourcePage;
 
+    @Column(name = "official_source_url", length = 1000)
+    private String officialSourceUrl;
+
+    @Column(name = "official_pdf_url", length = 1000)
+    private String officialPdfUrl;
+
+    @Column(name = "official_answer_key_url", length = 1000)
+    private String officialAnswerKeyUrl;
+
+    @Column(name = "official_page")
+    private Integer officialPage;
+
+    @Column(name = "validated_against_official_source", nullable = false)
+    private Boolean validatedAgainstOfficialSource = false;
+
+    @Column(name = "validated_at")
+    private OffsetDateTime validatedAt;
+
+    @Column(name = "external_provider", length = 120)
+    private String externalProvider;
+
+    @Column(name = "external_provider_url", length = 1000)
+    private String externalProviderUrl;
+
+    @Column(name = "external_question_id", length = 255)
+    private String externalQuestionId;
+
+    @Column(name = "external_license", length = 255)
+    private String externalLicense;
+
     @Column(name = "imported_at")
     private OffsetDateTime importedAt;
 
@@ -136,6 +166,9 @@ public class Question extends BaseEntity {
         }
         if (importStatus == null) {
             importStatus = QuestionImportStatus.PUBLISHED;
+        }
+        if (validatedAgainstOfficialSource == null) {
+            validatedAgainstOfficialSource = false;
         }
         if (importedAt == null) {
             importedAt = OffsetDateTime.now();

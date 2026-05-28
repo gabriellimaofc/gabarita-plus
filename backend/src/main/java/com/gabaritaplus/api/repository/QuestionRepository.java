@@ -24,5 +24,10 @@ public interface QuestionRepository extends JpaRepository<Question, Long>, JpaSp
             Integer sourceYear
     );
 
+    boolean existsByExternalProviderIgnoreCaseAndExternalQuestionIdIgnoreCase(
+            String externalProvider,
+            String externalQuestionId
+    );
+
     List<Question> findByImportStatusIn(Collection<QuestionImportStatus> statuses);
 }

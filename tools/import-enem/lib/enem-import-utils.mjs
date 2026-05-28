@@ -19,7 +19,7 @@ const VISUAL_HINTS = [
   "a ilustracao",
 ];
 
-const BROKEN_MARKERS = ["Ã§", "Ã£", "Ã©", "Ãª", "Ã³", "Ãº", "â€œ", "â€\u009d", "â€“"];
+const BROKEN_MARKERS = ["Ã§", "Ã£", "Ã©", "Ãª", "Ã³", "Ãº", "â€œ", "â€", "â€“"];
 
 export function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));

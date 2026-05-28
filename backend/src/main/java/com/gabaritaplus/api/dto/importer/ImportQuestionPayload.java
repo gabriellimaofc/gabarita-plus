@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public record ImportQuestionPayload(
@@ -60,12 +61,27 @@ public record ImportQuestionPayload(
         Integer sourceYear,
         @NotNull(message = "Numero oficial da questao e obrigatorio.")
         Integer sourceQuestionNumber,
-        @NotBlank(message = "Cor do caderno de origem e obrigatoria.")
         @Size(max = 40)
         String sourceBookColor,
-        @NotNull(message = "Dia da prova de origem e obrigatorio.")
         Integer sourceDay,
         Integer sourcePage,
+        @Size(max = 1000)
+        String officialSourceUrl,
+        @Size(max = 1000)
+        String officialPdfUrl,
+        @Size(max = 1000)
+        String officialAnswerKeyUrl,
+        Integer officialPage,
+        Boolean validatedAgainstOfficialSource,
+        OffsetDateTime validatedAt,
+        @Size(max = 120)
+        String externalProvider,
+        @Size(max = 1000)
+        String externalProviderUrl,
+        @Size(max = 255)
+        String externalQuestionId,
+        @Size(max = 255)
+        String externalLicense,
         @Valid
         List<ImportQuestionAssetPayload> assets,
         @Valid
