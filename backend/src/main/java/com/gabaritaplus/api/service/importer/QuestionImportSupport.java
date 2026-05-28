@@ -58,6 +58,10 @@ public class QuestionImportSupport {
 
     public List<String> validateImportPayload(ImportQuestionPayload payload) {
         List<String> errors = new ArrayList<>();
+        if (!"INEP".equalsIgnoreCase(Objects.toString(payload.source(), "").trim())) {
+            errors.add("A fonte precisa ser INEP.");
+        }
+
         List<ImportAlternativePayload> alternatives = normalizeAlternativePayloads(payload.alternatives());
         if (alternatives.size() != 5) {
             errors.add("A questao precisa ter exatamente 5 alternativas.");

@@ -60,8 +60,10 @@ public record ImportQuestionPayload(
         Integer sourceYear,
         @NotNull(message = "Numero oficial da questao e obrigatorio.")
         Integer sourceQuestionNumber,
+        @NotBlank(message = "Cor do caderno de origem e obrigatoria.")
         @Size(max = 40)
         String sourceBookColor,
+        @NotNull(message = "Dia da prova de origem e obrigatorio.")
         Integer sourceDay,
         Integer sourcePage,
         @Valid

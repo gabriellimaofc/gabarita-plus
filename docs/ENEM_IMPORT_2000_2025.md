@@ -122,6 +122,34 @@ Authorization: Bearer <jwt-admin>
 Content-Type: application/json
 ```
 
+Script PowerShell para validar o dry-run em producao sem persistir dados:
+
+```powershell
+cd backend
+.\scripts\test-import-dry-run.ps1
+```
+
+O script:
+
+- faz login como admin
+- carrega `database/examples/enem-official-import.example.json`
+- envia o payload para `POST /api/admin/import/questions/dry-run`
+- mostra o relatorio de validacao
+- compara a quantidade de `import_batches` antes e depois
+- exige `batchId = null` no retorno
+- confirma explicitamente que nada foi salvo no banco
+
+Parametros uteis:
+
+```powershell
+.\scripts\test-import-dry-run.ps1 `
+  -ApiBaseUrl "https://gabarita-plus-api.onrender.com/api" `
+  -AdminEmail "admin@gabaritaplus.com" `
+  -ImportFile "..\..\database\examples\enem-official-import.example.json"
+```
+
+O script nao imprime senha, access token completo, refresh token, JWT secreto ou credenciais do banco.
+
 ## Importacao real
 
 JSON:
