@@ -109,7 +109,10 @@ public class QuestionService {
 
     public Page<QuestionResponse> listReviewQuestions(Pageable pageable) {
         return questionRepository.findByImportStatusIn(reviewableStatuses(), pageable)
-                .map(questionMapper::toResponse);
+                .map(question -> {
+                    initializeQuestionGraph(question);
+                    return questionMapper.toResponse(question);
+                });
     }
 
     public QuestionResponse getReviewQuestion(Long id) {
@@ -117,6 +120,7 @@ public class QuestionService {
         if (!reviewableStatuses().contains(question.getImportStatus())) {
             throw new ResourceNotFoundException("Questao nao encontrada em revisao.");
         }
+        initializeQuestionGraph(question);
         return questionMapper.toResponse(question);
     }
 
@@ -437,6 +441,12 @@ public class QuestionService {
                 QuestionImportStatus.VALIDATED,
                 QuestionImportStatus.INVALID
         );
+    }
+
+    private void initializeQuestionGraph(Question question) {
+        question.getAssets().size();
+        question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
+        question.getAlternatives().size();
     }
 
     private void updateErrorNotebook(User user, Question question, boolean correct) {
