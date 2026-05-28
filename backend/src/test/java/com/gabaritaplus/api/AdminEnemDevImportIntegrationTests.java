@@ -43,7 +43,7 @@ class AdminEnemDevImportIntegrationTests {
     @Test
     @WithMockUser(roles = "ADMIN")
     void dryRunKeepsExternalQuestionsInNeedsReview() throws Exception {
-        when(enemDevApiClient.listAllQuestions(eq(2023), isNull(), isNull(), isNull()))
+        when(enemDevApiClient.listQuestions(eq(2023), eq(1), isNull(), isNull()))
                 .thenReturn(List.of(new EnemDevQuestionResponse(
                         "Questao 1 - ENEM 2023",
                         1,

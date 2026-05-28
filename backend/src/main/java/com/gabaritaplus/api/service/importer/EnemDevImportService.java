@@ -29,6 +29,8 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class EnemDevImportService {
 
+    private static final int DEFAULT_SAMPLE_LIMIT = 1;
+    private static final int MAX_SAMPLE_LIMIT = 10;
     private static final String ENEM_DEV_SOURCE = "ENEM_DEV";
     private static final String ENEM_DEV_PROVIDER = "enem.dev";
     private static final String ENEM_DEV_PROVIDER_URL = "https://enem.dev";
@@ -49,7 +51,7 @@ public class EnemDevImportService {
 
     @Transactional(readOnly = true)
     public EnemDevPreviewResponse preview(EnemDevImportRequest request) {
-        List<ImportQuestionPayload> normalized = fetchAndNormalize(request);
+        List<ImportQuestionPayload> normalized = fetchAndNormalizeSample(request);
         List<EnemDevPreviewItemResponse> items = new ArrayList<>();
 
         for (ImportQuestionPayload payload : normalized) {
@@ -83,7 +85,7 @@ public class EnemDevImportService {
 
     @Transactional(readOnly = true)
     public ImportReportResponse dryRun(EnemDevImportRequest request) {
-        return questionImportService.dryRunQuestions(fetchAndNormalize(request), ImportValidationMode.EXTERNAL_AUXILIARY);
+        return questionImportService.dryRunQuestions(fetchAndNormalizeSample(request), ImportValidationMode.EXTERNAL_AUXILIARY);
     }
 
     @Transactional
@@ -95,6 +97,18 @@ public class EnemDevImportService {
         return enemDevApiClient.listAllQuestions(
                         request.year(),
                         request.limit(),
+                        request.offset(),
+                        request.language()
+                ).stream()
+                .map(question -> normalizeQuestion(request.year(), question))
+                .toList();
+    }
+
+    public List<ImportQuestionPayload> fetchAndNormalizeSample(EnemDevImportRequest request) {
+        int limit = sanitizeSampleLimit(request.limit());
+        return enemDevApiClient.listQuestions(
+                        request.year(),
+                        limit,
                         request.offset(),
                         request.language()
                 ).stream()
@@ -341,5 +355,12 @@ public class EnemDevImportService {
     private String normalizeText(String value) {
         String normalized = normalizeOptional(value);
         return normalized == null ? null : normalized;
+    }
+
+    private int sanitizeSampleLimit(Integer requestedLimit) {
+        if (requestedLimit == null || requestedLimit <= 0) {
+            return DEFAULT_SAMPLE_LIMIT;
+        }
+        return Math.min(requestedLimit, MAX_SAMPLE_LIMIT);
     }
 }
