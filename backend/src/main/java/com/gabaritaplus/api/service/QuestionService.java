@@ -30,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -115,7 +116,20 @@ public class QuestionService {
             Integer year,
             Pageable pageable
     ) {
-        return questionRepository.findReviewSummaries(resolveReviewStatuses(statuses), normalizeSourceFilter(source), year, pageable);
+        Page<Question> page = questionRepository.findAll(
+                QuestionSpecification.reviewQuestions(
+                        resolveReviewStatuses(statuses),
+                        normalizeSourceFilter(source),
+                        year
+                ),
+                pageable
+        );
+
+        List<AdminImportedQuestionReviewSummaryResponse> content = page.getContent().stream()
+                .map(this::toAdminReviewSummaryResponse)
+                .toList();
+
+        return new PageImpl<>(content, pageable, page.getTotalElements());
     }
 
     public AdminImportedQuestionReviewDetailResponse getReviewQuestion(Long id) {
@@ -461,12 +475,32 @@ public class QuestionService {
     }
 
     private void initializeQuestionGraph(Question question) {
-        if (question.getImportBatch() != null) {
-            question.getImportBatch().getId();
-        }
         question.getAssets().size();
         question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
         question.getAlternatives().size();
+    }
+
+    private AdminImportedQuestionReviewSummaryResponse toAdminReviewSummaryResponse(Question question) {
+        initializeQuestionGraph(question);
+        return new AdminImportedQuestionReviewSummaryResponse(
+                question.getId(),
+                question.getTitle(),
+                question.getSource(),
+                question.getSourceYear(),
+                question.getSourceQuestionNumber(),
+                question.getSourceBookColor(),
+                question.getSourceDay(),
+                question.getImportStatus(),
+                question.getValidatedAgainstOfficialSource(),
+                question.getExternalProvider(),
+                questionRepository.findImportBatchIdByQuestionId(question.getId()),
+                question.getSubject(),
+                question.getDifficulty(),
+                question.getCreatedAt(),
+                question.getImportedAt(),
+                question.getAlternatives().size(),
+                question.getAssets().size()
+        );
     }
 
     private AdminImportedQuestionReviewDetailResponse toAdminReviewDetailResponse(Question question) {
@@ -503,7 +537,7 @@ public class QuestionService {
                 question.getExternalQuestionId(),
                 question.getExternalLicense(),
                 question.getImportedAt(),
-                question.getImportBatch() == null ? null : question.getImportBatch().getId(),
+                questionRepository.findImportBatchIdByQuestionId(question.getId()),
                 question.getStatementHash(),
                 question.getImportStatus(),
                 question.getExplanation(),

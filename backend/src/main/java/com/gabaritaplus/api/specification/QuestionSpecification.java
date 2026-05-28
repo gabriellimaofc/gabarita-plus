@@ -5,6 +5,7 @@ import com.gabaritaplus.api.entity.Question;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.Collection;
 import java.util.List;
 
 public final class QuestionSpecification {
@@ -30,6 +31,16 @@ public final class QuestionSpecification {
                 .and(filterByIdSet(Boolean.TRUE.equals(filter.favoritesOnly()), favoriteIds));
     }
 
+    public static Specification<Question> reviewQuestions(
+            Collection<QuestionImportStatus> statuses,
+            String source,
+            Integer year
+    ) {
+        return Specification.where(inValues("importStatus", statuses))
+                .and(equalIgnoreCase("source", source))
+                .and(equalValue("sourceYear", year));
+    }
+
     private static Specification<Question> likeIgnoreCase(String field, String value) {
         return (root, query, builder) -> {
             if (value == null || value.isBlank()) {
@@ -50,6 +61,15 @@ public final class QuestionSpecification {
 
     private static Specification<Question> equalValue(String field, Object value) {
         return (root, query, builder) -> value == null ? builder.conjunction() : builder.equal(root.get(field), value);
+    }
+
+    private static Specification<Question> inValues(String field, Collection<?> values) {
+        return (root, query, builder) -> {
+            if (values == null || values.isEmpty()) {
+                return builder.conjunction();
+            }
+            return root.get(field).in(values);
+        };
     }
 
     private static Specification<Question> filterByIdSet(boolean enabled, List<Long> ids) {
