@@ -1,7 +1,6 @@
-package com.gabaritaplus.api.dto.question;
+package com.gabaritaplus.api.dto.importer;
 
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
-import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -12,7 +11,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-public record QuestionRequest(
+public record ImportQuestionPayload(
         @NotBlank(message = "Titulo e obrigatorio.")
         @Size(max = 180)
         String title,
@@ -32,8 +31,8 @@ public record QuestionRequest(
         @NotNull(message = "Dificuldade e obrigatoria.")
         DifficultyLevel difficulty,
         @NotNull(message = "Ano e obrigatorio.")
-        @Min(value = 2000, message = "Ano invalido.")
-        @Max(value = 2100, message = "Ano invalido.")
+        @Min(2000)
+        @Max(2100)
         Integer year,
         @NotBlank(message = "Prova e obrigatoria.")
         @Size(max = 120)
@@ -43,7 +42,7 @@ public record QuestionRequest(
         @Size(max = 120)
         String ability,
         String explanation,
-        @NotBlank(message = "Alternativa correta e obrigatoria.")
+        @NotBlank(message = "Gabarito e obrigatorio.")
         @Size(min = 1, max = 1)
         String correctAlternative,
         @NotBlank(message = "Fonte e obrigatoria.")
@@ -56,20 +55,19 @@ public record QuestionRequest(
         @Size(max = 120)
         String sourceExam,
         @NotNull(message = "Ano de origem e obrigatorio.")
-        @Min(value = 2000, message = "Ano de origem invalido.")
-        @Max(value = 2100, message = "Ano de origem invalido.")
+        @Min(2000)
+        @Max(2100)
         Integer sourceYear,
-        @NotNull(message = "Numero da questao de origem e obrigatorio.")
+        @NotNull(message = "Numero oficial da questao e obrigatorio.")
         Integer sourceQuestionNumber,
         @Size(max = 40)
         String sourceBookColor,
         Integer sourceDay,
         Integer sourcePage,
-        QuestionImportStatus importStatus,
         @Valid
-        List<QuestionAssetRequest> assets,
+        List<ImportQuestionAssetPayload> assets,
         @Valid
         @NotEmpty(message = "A questao deve possuir alternativas.")
-        List<AlternativeRequest> alternatives
+        List<ImportAlternativePayload> alternatives
 ) {
 }

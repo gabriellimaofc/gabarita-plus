@@ -79,6 +79,36 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .question-html p,
+  .question-html ul,
+  .question-html ol,
+  .question-html table,
+  .question-html blockquote {
+    @apply mb-4;
+  }
+
+  .question-html ul,
+  .question-html ol {
+    @apply ml-5 list-outside;
+  }
+
+  .question-html ul {
+    @apply list-disc;
+  }
+
+  .question-html ol {
+    @apply list-decimal;
+  }
+
+  .question-html table {
+    @apply w-full overflow-hidden rounded-2xl border border-border;
+  }
+
+  .question-html th,
+  .question-html td {
+    @apply border border-border px-3 py-2 text-left;
+  }
 }
 
 ::-webkit-scrollbar {

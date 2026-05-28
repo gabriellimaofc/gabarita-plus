@@ -12,6 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnswerFeedback } from "@/features/questions/components/answer-feedback";
+import {
+  AlternativeContent,
+  QuestionContent,
+} from "@/features/questions/components/question-content";
 import { QuestionNavigator } from "@/features/questions/components/question-navigator";
 import { QuestionProgress } from "@/features/questions/components/question-progress";
 import { ExamAnswerCard } from "@/features/mock-exams/components/exam-answer-card";
@@ -207,9 +211,13 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
                     <h3 className="text-lg font-semibold">
                       {question.questionOrder}. {question.title}
                     </h3>
-                    <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                      {question.statement}
-                    </p>
+                    <div className="mt-2">
+                      <QuestionContent
+                        statement={question.statement}
+                        statementHtml={question.statementHtml}
+                        assets={question.assets}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -231,9 +239,9 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
                         )}
                       >
                         <p className="font-semibold">{alternative.letter}</p>
-                        <p className="mt-1 text-sm leading-7 text-muted-foreground">
-                          {alternative.text}
-                        </p>
+                        <div className="mt-1">
+                          <AlternativeContent alternative={alternative} />
+                        </div>
                       </div>
                     );
                   })}
@@ -338,9 +346,12 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-8">
-              <p className="text-sm leading-8 text-muted-foreground">
-                {currentQuestion.statement}
-              </p>
+              <QuestionContent
+                statement={currentQuestion.statement}
+                statementHtml={currentQuestion.statementHtml}
+                assets={currentQuestion.assets}
+                sourceLabel="Recursos oficiais da questao"
+              />
 
               <div className="space-y-3">
                 {currentQuestion.alternatives.map((alternative) => {
@@ -388,9 +399,9 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
                       </div>
                       <div>
                         <p className="font-semibold">{alternative.letter}</p>
-                        <p className="mt-1 text-sm leading-7 text-muted-foreground">
-                          {alternative.text}
-                        </p>
+                        <div className="mt-1">
+                          <AlternativeContent alternative={alternative} />
+                        </div>
                       </div>
                     </button>
                   );

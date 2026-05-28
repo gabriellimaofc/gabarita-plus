@@ -1,4 +1,4 @@
-import type { Alternative, DifficultyLevel } from "@/types/question";
+import type { Alternative, DifficultyLevel, QuestionAsset } from "@/types/question";
 
 export interface MockExamQuestion {
   questionId: number;
@@ -32,6 +32,7 @@ export interface MockExamQuestionDetail {
   questionOrder: number;
   title: string;
   statement: string;
+  statementHtml: string | null;
   imageUrl: string | null;
   subject: string;
   topic: string;
@@ -46,6 +47,7 @@ export interface MockExamQuestionDetail {
   correct: boolean | null;
   correctAlternative: string | null;
   explanation: string | null;
+  assets: QuestionAsset[];
   alternatives: Alternative[];
 }
 

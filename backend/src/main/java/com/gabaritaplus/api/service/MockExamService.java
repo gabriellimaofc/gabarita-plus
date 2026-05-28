@@ -14,6 +14,7 @@ import com.gabaritaplus.api.entity.MockExamAnswer;
 import com.gabaritaplus.api.entity.MockExamQuestion;
 import com.gabaritaplus.api.entity.Question;
 import com.gabaritaplus.api.entity.User;
+import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.exception.ResourceNotFoundException;
 import com.gabaritaplus.api.mapper.MockExamMapper;
 import com.gabaritaplus.api.repository.MockExamRepository;
@@ -201,6 +202,9 @@ public class MockExamService {
             if (questions.size() != requestedQuestionIds.size()) {
                 throw new ResourceNotFoundException("Uma ou mais questoes do simulado nao foram encontradas.");
             }
+            if (questions.stream().anyMatch(question -> question.getImportStatus() != QuestionImportStatus.PUBLISHED)) {
+                throw new IllegalArgumentException("Somente questoes publicadas podem entrar em simulados.");
+            }
 
             Map<Long, Question> questionsById = questions.stream()
                     .collect(Collectors.toMap(Question::getId, Function.identity()));
@@ -214,10 +218,11 @@ public class MockExamService {
                 ? request.questionCount()
                 : DEFAULT_AUTO_QUESTION_COUNT;
 
-        List<Question> autoSelectedQuestions = questionRepository.findAll(
-                        PageRequest.of(0, questionCount, Sort.by(Sort.Direction.DESC, "createdAt"))
-                )
-                .getContent();
+        List<Question> autoSelectedQuestions = questionRepository.findByImportStatusIn(List.of(QuestionImportStatus.PUBLISHED))
+                .stream()
+                .sorted(Comparator.comparing(Question::getCreatedAt).reversed())
+                .limit(questionCount)
+                .toList();
 
         if (autoSelectedQuestions.isEmpty()) {
             throw new IllegalArgumentException("Nao ha questoes suficientes para criar o simulado.");

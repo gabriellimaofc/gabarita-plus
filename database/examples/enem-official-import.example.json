@@ -1,0 +1,74 @@
+[
+  {
+    "title": "ENEM {ANO} - {AREA} - Questao {NUMERO}",
+    "statement": "TEXTO_OFICIAL_DA_QUESTAO_A_SER_EXTRAIDO_DA_FONTE_OFICIAL",
+    "statementHtml": "<p>TEXTO_OFICIAL_DA_QUESTAO_A_SER_EXTRAIDO_DA_FONTE_OFICIAL</p>",
+    "imageUrl": null,
+    "subject": "{MATERIA}",
+    "topic": "A classificar",
+    "subtopic": "A classificar",
+    "difficulty": "MEDIUM",
+    "year": 2024,
+    "exam": "ENEM",
+    "competency": null,
+    "ability": null,
+    "correctAlternative": "A",
+    "explanation": null,
+    "source": "INEP",
+    "sourceUrl": "https://www.gov.br/inep/pt-br/areas-de-atuacao/avaliacao-e-exames-educacionais/enem/provas-e-gabaritos",
+    "sourceExam": "ENEM",
+    "sourceYear": 2024,
+    "sourceQuestionNumber": 1,
+    "sourceBookColor": "AZUL",
+    "sourceDay": 1,
+    "sourcePage": 1,
+    "assets": [
+      {
+        "type": "IMAGE",
+        "url": "https://storage.example.com/enem/{ano}/dia-{dia}/{cor}/q{numero}/imagem-1.png",
+        "storagePath": "enem/{ano}/dia-{dia}/{cor}/q{numero}/imagem-1.png",
+        "originalFileName": "imagem-1.png",
+        "sourcePage": 1,
+        "cropX": 0,
+        "cropY": 0,
+        "cropWidth": 100,
+        "cropHeight": 100,
+        "altText": "DESCREVA_O_RECURSO_VISUAL",
+        "caption": "LEGENDA_DO_RECURSO_VISUAL",
+        "checksum": "CHECKSUM_DO_ARQUIVO"
+      }
+    ],
+    "alternatives": [
+      {
+        "letter": "A",
+        "text": "ALTERNATIVA_A_EXTRAIDA_DA_FONTE_OFICIAL",
+        "html": "<p>ALTERNATIVA_A_EXTRAIDA_DA_FONTE_OFICIAL</p>",
+        "assets": []
+      },
+      {
+        "letter": "B",
+        "text": "ALTERNATIVA_B_EXTRAIDA_DA_FONTE_OFICIAL",
+        "html": "<p>ALTERNATIVA_B_EXTRAIDA_DA_FONTE_OFICIAL</p>",
+        "assets": []
+      },
+      {
+        "letter": "C",
+        "text": "ALTERNATIVA_C_EXTRAIDA_DA_FONTE_OFICIAL",
+        "html": "<p>ALTERNATIVA_C_EXTRAIDA_DA_FONTE_OFICIAL</p>",
+        "assets": []
+      },
+      {
+        "letter": "D",
+        "text": "ALTERNATIVA_D_EXTRAIDA_DA_FONTE_OFICIAL",
+        "html": "<p>ALTERNATIVA_D_EXTRAIDA_DA_FONTE_OFICIAL</p>",
+        "assets": []
+      },
+      {
+        "letter": "E",
+        "text": "ALTERNATIVA_E_EXTRAIDA_DA_FONTE_OFICIAL",
+        "html": "<p>ALTERNATIVA_E_EXTRAIDA_DA_FONTE_OFICIAL</p>",
+        "assets": []
+      }
+    ]
+  }
+]

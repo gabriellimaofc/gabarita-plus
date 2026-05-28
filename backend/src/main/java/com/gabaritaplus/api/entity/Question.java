@@ -1,17 +1,24 @@
 package com.gabaritaplus.api.entity;
 
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
+import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,6 +34,9 @@ public class Question extends BaseEntity {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String statement;
+
+    @Column(columnDefinition = "TEXT")
+    private String statementHtml;
 
     @Column(length = 500)
     private String imageUrl;
@@ -62,6 +72,69 @@ public class Question extends BaseEntity {
     @Column(nullable = false, length = 1)
     private String correctAlternative;
 
+    @Column(nullable = false, length = 80)
+    private String source = "PLATFORM";
+
+    @Column(nullable = false, length = 1000)
+    private String sourceUrl = "internal://legacy-question";
+
+    @Column(nullable = false, length = 120)
+    private String sourceExam;
+
+    @Column(nullable = false)
+    private Integer sourceYear;
+
+    private Integer sourceQuestionNumber;
+
+    @Column(length = 40)
+    private String sourceBookColor;
+
+    private Integer sourceDay;
+
+    private Integer sourcePage;
+
+    private OffsetDateTime importedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "import_batch_id")
+    private ImportBatch importBatch;
+
+    @Column(nullable = false, length = 128)
+    private String statementHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private QuestionImportStatus importStatus = QuestionImportStatus.PUBLISHED;
+
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Alternative> alternatives = new ArrayList<>();
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<QuestionAsset> assets = new ArrayList<>();
+
+    @PrePersist
+    @PreUpdate
+    private void applyImportDefaults() {
+        if (sourceExam == null) {
+            sourceExam = exam;
+        }
+        if (sourceYear == null) {
+            sourceYear = year;
+        }
+        if (statementHash == null || statementHash.isBlank()) {
+            statementHash = Integer.toHexString((title + "::" + statement).hashCode());
+        }
+        if (sourceUrl == null || sourceUrl.isBlank()) {
+            sourceUrl = "internal://legacy-question";
+        }
+        if (source == null || source.isBlank()) {
+            source = "PLATFORM";
+        }
+        if (importStatus == null) {
+            importStatus = QuestionImportStatus.PUBLISHED;
+        }
+        if (importedAt == null) {
+            importedAt = OffsetDateTime.now();
+        }
+    }
 }

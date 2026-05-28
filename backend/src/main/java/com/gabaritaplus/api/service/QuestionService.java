@@ -14,6 +14,7 @@ import com.gabaritaplus.api.entity.Question;
 import com.gabaritaplus.api.entity.User;
 import com.gabaritaplus.api.entity.UserAnswer;
 import com.gabaritaplus.api.entity.enums.MasteryStatus;
+import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.entity.enums.ReviewPriority;
 import com.gabaritaplus.api.exception.ResourceNotFoundException;
 import com.gabaritaplus.api.mapper.QuestionMapper;
@@ -21,11 +22,14 @@ import com.gabaritaplus.api.repository.ErrorNotebookRepository;
 import com.gabaritaplus.api.repository.FavoriteQuestionRepository;
 import com.gabaritaplus.api.repository.QuestionRepository;
 import com.gabaritaplus.api.repository.UserAnswerRepository;
+import com.gabaritaplus.api.service.importer.QuestionImportSupport;
 import com.gabaritaplus.api.specification.QuestionSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,9 +40,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -53,10 +55,12 @@ public class QuestionService {
     private final ErrorNotebookRepository errorNotebookRepository;
     private final QuestionMapper questionMapper;
     private final AuthenticatedUserService authenticatedUserService;
+    private final QuestionImportSupport questionImportSupport;
 
     @Transactional
     public QuestionResponse create(QuestionRequest request) {
         Question question = questionMapper.toEntity(request);
+        hydrateImportFields(question);
         Question savedQuestion = questionRepository.save(question);
         User currentUser = authenticatedUserService.getCurrentUser();
         return enrichResponse(savedQuestion, isFavorite(currentUser.getId(), savedQuestion.getId()), null);
@@ -65,25 +69,8 @@ public class QuestionService {
     @Transactional
     public QuestionResponse update(Long id, QuestionRequest request) {
         Question existing = getQuestionEntity(id);
-        existing.setTitle(request.title());
-        existing.setStatement(request.statement());
-        existing.setImageUrl(request.imageUrl());
-        existing.setSubject(request.subject());
-        existing.setTopic(request.topic());
-        existing.setSubtopic(request.subtopic());
-        existing.setDifficulty(request.difficulty());
-        existing.setYear(request.year());
-        existing.setExam(request.exam());
-        existing.setCompetency(request.competency());
-        existing.setAbility(request.ability());
-        existing.setExplanation(request.explanation());
-        existing.setCorrectAlternative(request.correctAlternative());
-        existing.getAlternatives().clear();
-        request.alternatives().forEach(alternativeRequest -> {
-            var alternative = questionMapper.toAlternative(alternativeRequest);
-            alternative.setQuestion(existing);
-            existing.getAlternatives().add(alternative);
-        });
+        questionMapper.apply(existing, request);
+        hydrateImportFields(existing);
 
         User currentUser = authenticatedUserService.getCurrentUser();
         Question savedQuestion = questionRepository.save(existing);
@@ -92,7 +79,7 @@ public class QuestionService {
 
     public QuestionResponse getById(Long id) {
         User user = authenticatedUserService.getCurrentUser();
-        Question question = getQuestionEntity(id);
+        Question question = getAccessibleQuestion(id);
         UserAnswer latestAnswer = userAnswerRepository
                 .findTopByUserIdAndQuestionIdOrderByAttemptNumberDesc(user.getId(), id)
                 .orElse(null);
@@ -129,7 +116,7 @@ public class QuestionService {
     @Transactional
     public UserAnswerResponse answerQuestion(UserAnswerRequest request) {
         User user = authenticatedUserService.getCurrentUser();
-        Question question = getQuestionEntity(request.questionId());
+        Question question = getAccessibleQuestion(request.questionId());
         UserAnswer savedAnswer = recordUserAnswer(
                 user,
                 question,
@@ -177,7 +164,7 @@ public class QuestionService {
     @Transactional
     public QuestionResponse toggleFavorite(Long questionId) {
         User user = authenticatedUserService.getCurrentUser();
-        Question question = getQuestionEntity(questionId);
+        Question question = getAccessibleQuestion(questionId);
         favoriteQuestionRepository.findByUserIdAndQuestionId(user.getId(), questionId)
                 .ifPresentOrElse(favoriteQuestionRepository::delete, () -> {
                     FavoriteQuestion favoriteQuestion = new FavoriteQuestion();
@@ -205,6 +192,7 @@ public class QuestionService {
         );
 
         return notebooks.stream()
+                .filter(notebook -> notebook.getQuestion().getImportStatus() == QuestionImportStatus.PUBLISHED)
                 .map(notebook -> {
                     LocalDate lastErrorAt = latestIncorrectDates.get(notebook.getQuestion().getId());
                     ReviewPriority priority = determinePriority(notebook, lastErrorAt);
@@ -229,6 +217,23 @@ public class QuestionService {
         LocalDate lastErrorAt = findLatestIncorrectDates(user.getId(), List.of(questionId)).get(questionId);
         ReviewPriority priority = determinePriority(savedNotebook, lastErrorAt);
         return questionMapper.toErrorNotebookResponse(savedNotebook, lastErrorAt, priority);
+    }
+
+    public Question getPublishedQuestionEntity(Long id) {
+        return getAccessibleQuestion(id);
+    }
+
+    private void hydrateImportFields(Question question) {
+        if (question.getSourceExam() == null) {
+            question.setSourceExam(question.getExam());
+        }
+        if (question.getSourceYear() == null) {
+            question.setSourceYear(question.getYear());
+        }
+        if (question.getImportedAt() == null) {
+            question.setImportedAt(OffsetDateTime.now());
+        }
+        question.setStatementHash(questionImportSupport.generateStatementHash(question.getStatement(), question.getStatementHtml()));
     }
 
     private boolean isFavorite(Long userId, Long questionId) {
@@ -287,9 +292,7 @@ public class QuestionService {
     private Comparator<ErrorNotebookResponse> buildNotebookComparator() {
         return Comparator
                 .comparing((ErrorNotebookResponse entry) -> priorityRank(entry.priority()))
-                .thenComparing(
-                        entry -> entry.nextReviewAt() == null ? LocalDate.MAX : entry.nextReviewAt()
-                )
+                .thenComparing(entry -> entry.nextReviewAt() == null ? LocalDate.MAX : entry.nextReviewAt())
                 .thenComparing(ErrorNotebookResponse::updatedAt, Comparator.reverseOrder());
     }
 
@@ -337,6 +340,20 @@ public class QuestionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Questao nao encontrada."));
     }
 
+    private Question getAccessibleQuestion(Long id) {
+        Question question = getQuestionEntity(id);
+        if (question.getImportStatus() != QuestionImportStatus.PUBLISHED && !currentUserIsAdmin()) {
+            throw new ResourceNotFoundException("Questao nao encontrada.");
+        }
+        return question;
+    }
+
+    private boolean currentUserIsAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+    }
+
     private QuestionResponse enrichResponse(Question question, boolean favorite, UserAnswer latestAnswer) {
         QuestionResponse base = questionMapper.toResponse(question);
         boolean answered = latestAnswer != null;
@@ -344,6 +361,7 @@ public class QuestionService {
                 base.id(),
                 base.title(),
                 base.statement(),
+                base.statementHtml(),
                 base.imageUrl(),
                 base.subject(),
                 base.topic(),
@@ -353,11 +371,22 @@ public class QuestionService {
                 base.exam(),
                 base.competency(),
                 base.ability(),
+                base.source(),
+                base.sourceUrl(),
+                base.sourceExam(),
+                base.sourceYear(),
+                base.sourceQuestionNumber(),
+                base.sourceBookColor(),
+                base.sourceDay(),
+                base.sourcePage(),
+                base.statementHash(),
+                base.importStatus(),
                 answered ? base.explanation() : null,
                 answered ? base.correctAlternative() : null,
                 favorite,
                 answered,
                 answered ? latestAnswer.isCorrect() : null,
+                base.assets(),
                 base.alternatives(),
                 base.createdAt(),
                 base.updatedAt()

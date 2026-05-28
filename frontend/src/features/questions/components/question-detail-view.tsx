@@ -12,6 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AnswerFeedback,
 } from "@/features/questions/components/answer-feedback";
+import {
+  AlternativeContent,
+  QuestionContent,
+} from "@/features/questions/components/question-content";
 import { QuestionNavigator } from "@/features/questions/components/question-navigator";
 import { QuestionProgress } from "@/features/questions/components/question-progress";
 import {
@@ -180,7 +184,12 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          <p className="text-sm leading-8 text-muted-foreground">{question.statement}</p>
+          <QuestionContent
+            statement={question.statement}
+            statementHtml={question.statementHtml}
+            assets={question.assets}
+            sourceLabel="Recursos oficiais da questao"
+          />
 
           <div className="space-y-3">
             {question.alternatives.map((alternative) => {
@@ -218,9 +227,9 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
                   </div>
                   <div>
                     <p className="font-semibold">{alternative.letter}</p>
-                    <p className="mt-1 text-sm leading-7 text-muted-foreground">
-                      {alternative.text}
-                    </p>
+                    <div className="mt-1">
+                      <AlternativeContent alternative={alternative} />
+                    </div>
                   </div>
                 </button>
               );

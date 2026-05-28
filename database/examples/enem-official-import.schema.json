@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gabarita+ ENEM Official Import",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "title",
+      "statement",
+      "subject",
+      "topic",
+      "difficulty",
+      "year",
+      "exam",
+      "correctAlternative",
+      "source",
+      "sourceUrl",
+      "sourceExam",
+      "sourceYear",
+      "sourceQuestionNumber",
+      "alternatives"
+    ],
+    "properties": {
+      "title": { "type": "string", "maxLength": 180 },
+      "statement": { "type": "string", "minLength": 1 },
+      "statementHtml": { "type": ["string", "null"] },
+      "imageUrl": { "type": ["string", "null"], "maxLength": 500 },
+      "subject": { "type": "string", "maxLength": 80 },
+      "topic": { "type": "string", "maxLength": 120 },
+      "subtopic": { "type": ["string", "null"], "maxLength": 120 },
+      "difficulty": { "type": "string", "enum": ["EASY", "MEDIUM", "HARD"] },
+      "year": { "type": "integer", "minimum": 2000, "maximum": 2100 },
+      "exam": { "type": "string", "maxLength": 120 },
+      "competency": { "type": ["string", "null"], "maxLength": 120 },
+      "ability": { "type": ["string", "null"], "maxLength": 120 },
+      "correctAlternative": { "type": "string", "enum": ["A", "B", "C", "D", "E"] },
+      "explanation": { "type": ["string", "null"] },
+      "source": { "type": "string", "maxLength": 80 },
+      "sourceUrl": { "type": "string", "maxLength": 1000 },
+      "sourceExam": { "type": "string", "maxLength": 120 },
+      "sourceYear": { "type": "integer", "minimum": 2000, "maximum": 2100 },
+      "sourceQuestionNumber": { "type": "integer", "minimum": 1 },
+      "sourceBookColor": { "type": ["string", "null"], "maxLength": 40 },
+      "sourceDay": { "type": ["integer", "null"], "minimum": 1, "maximum": 2 },
+      "sourcePage": { "type": ["integer", "null"], "minimum": 1 },
+      "assets": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/asset" }
+      },
+      "alternatives": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "items": { "$ref": "#/$defs/alternative" }
+      }
+    }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["IMAGE", "GRAPH", "TABLE", "MAP", "CHART", "DIAGRAM", "FORMULA", "OTHER"]
+        },
+        "url": { "type": ["string", "null"], "maxLength": 1000 },
+        "storagePath": { "type": ["string", "null"], "maxLength": 1000 },
+        "originalFileName": { "type": ["string", "null"], "maxLength": 255 },
+        "sourcePage": { "type": ["integer", "null"], "minimum": 1 },
+        "cropX": { "type": ["integer", "null"], "minimum": 0 },
+        "cropY": { "type": ["integer", "null"], "minimum": 0 },
+        "cropWidth": { "type": ["integer", "null"], "minimum": 0 },
+        "cropHeight": { "type": ["integer", "null"], "minimum": 0 },
+        "altText": { "type": ["string", "null"], "maxLength": 500 },
+        "caption": { "type": ["string", "null"], "maxLength": 500 },
+        "checksum": { "type": ["string", "null"], "maxLength": 128 }
+      }
+    },
+    "alternative": {
+      "type": "object",
+      "required": ["letter", "text"],
+      "properties": {
+        "letter": { "type": "string", "enum": ["A", "B", "C", "D", "E"] },
+        "text": { "type": "string", "minLength": 1 },
+        "html": { "type": ["string", "null"] },
+        "assets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/asset" }
+        }
+      }
+    }
+  }
+}

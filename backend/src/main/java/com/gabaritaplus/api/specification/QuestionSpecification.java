@@ -2,6 +2,7 @@ package com.gabaritaplus.api.specification;
 
 import com.gabaritaplus.api.dto.question.QuestionFilterRequest;
 import com.gabaritaplus.api.entity.Question;
+import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
@@ -15,7 +16,8 @@ public final class QuestionSpecification {
                                                     List<Long> answeredIds,
                                                     List<Long> incorrectIds,
                                                     List<Long> favoriteIds) {
-        return Specification.where(likeIgnoreCase("title", filter.search())
+        return Specification.where(equalValue("importStatus", QuestionImportStatus.PUBLISHED))
+                .and(likeIgnoreCase("title", filter.search())
                         .or(likeIgnoreCase("statement", filter.search())))
                 .and(equalIgnoreCase("subject", filter.subject()))
                 .and(equalIgnoreCase("topic", filter.topic()))

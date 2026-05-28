@@ -3,17 +3,53 @@ import type { PageMetadata } from "@/types/api";
 export type DifficultyLevel = "EASY" | "MEDIUM" | "HARD";
 export type MasteryStatus = "NEW" | "LEARNING" | "REVIEW" | "MASTERED";
 export type ReviewPriority = "HIGH" | "MEDIUM" | "LOW";
+export type QuestionImportStatus =
+  | "DRAFT"
+  | "NEEDS_REVIEW"
+  | "VALIDATED"
+  | "PUBLISHED"
+  | "INVALID";
+export type QuestionAssetType =
+  | "IMAGE"
+  | "GRAPH"
+  | "TABLE"
+  | "MAP"
+  | "CHART"
+  | "DIAGRAM"
+  | "FORMULA"
+  | "OTHER";
+
+export interface QuestionAsset {
+  id: number;
+  questionId: number | null;
+  alternativeId: number | null;
+  type: QuestionAssetType;
+  url: string | null;
+  storagePath: string | null;
+  originalFileName: string | null;
+  sourcePage: number | null;
+  cropX: number | null;
+  cropY: number | null;
+  cropWidth: number | null;
+  cropHeight: number | null;
+  altText: string | null;
+  caption: string | null;
+  checksum: string | null;
+}
 
 export interface Alternative {
   id: number;
   letter: string;
   text: string;
+  html: string | null;
+  assets: QuestionAsset[];
 }
 
 export interface Question {
   id: number;
   title: string;
   statement: string;
+  statementHtml: string | null;
   imageUrl: string | null;
   subject: string;
   topic: string;
@@ -23,11 +59,22 @@ export interface Question {
   exam: string;
   competency: string | null;
   ability: string | null;
+  source: string;
+  sourceUrl: string;
+  sourceExam: string;
+  sourceYear: number;
+  sourceQuestionNumber: number | null;
+  sourceBookColor: string | null;
+  sourceDay: number | null;
+  sourcePage: number | null;
+  statementHash: string;
+  importStatus: QuestionImportStatus;
   explanation: string | null;
   correctAlternative: string | null;
   favorite: boolean;
   answered: boolean | null;
   answeredCorrectly: boolean | null;
+  assets: QuestionAsset[];
   alternatives: Alternative[];
   createdAt: string;
   updatedAt: string;

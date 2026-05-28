@@ -4,10 +4,14 @@ import com.gabaritaplus.api.dto.mockexam.MockExamQuestionDetailResponse;
 import com.gabaritaplus.api.dto.mockexam.MockExamQuestionResponse;
 import com.gabaritaplus.api.entity.MockExamAnswer;
 import com.gabaritaplus.api.entity.MockExamQuestion;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class MockExamMapper {
+
+    private final QuestionMapper questionMapper;
 
     public MockExamQuestionResponse toQuestionResponse(
             MockExamQuestion mockExamQuestion,
@@ -34,6 +38,7 @@ public class MockExamMapper {
                 mockExamQuestion.getQuestionOrder(),
                 mockExamQuestion.getQuestion().getTitle(),
                 mockExamQuestion.getQuestion().getStatement(),
+                mockExamQuestion.getQuestion().getStatementHtml(),
                 mockExamQuestion.getQuestion().getImageUrl(),
                 mockExamQuestion.getQuestion().getSubject(),
                 mockExamQuestion.getQuestion().getTopic(),
@@ -48,14 +53,8 @@ public class MockExamMapper {
                 answer != null ? answer.isCorrect() : null,
                 revealAnswerKey ? mockExamQuestion.getQuestion().getCorrectAlternative() : null,
                 revealAnswerKey ? mockExamQuestion.getQuestion().getExplanation() : null,
-                mockExamQuestion.getQuestion().getAlternatives()
-                        .stream()
-                        .map(alternative -> new com.gabaritaplus.api.dto.question.AlternativeResponse(
-                                alternative.getId(),
-                                alternative.getLetter(),
-                                alternative.getText()
-                        ))
-                        .toList()
+                mockExamQuestion.getQuestion().getAssets().stream().map(questionMapper::toAssetResponse).toList(),
+                mockExamQuestion.getQuestion().getAlternatives().stream().map(questionMapper::toAlternativeResponse).toList()
         );
     }
 }

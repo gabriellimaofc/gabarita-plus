@@ -2,6 +2,7 @@ package com.gabaritaplus.api.dto.mockexam;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.gabaritaplus.api.dto.question.AlternativeResponse;
+import com.gabaritaplus.api.dto.question.QuestionAssetResponse;
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
 
 import java.util.List;
@@ -11,6 +12,7 @@ public record MockExamQuestionDetailResponse(
         Integer questionOrder,
         String title,
         String statement,
+        String statementHtml,
         String imageUrl,
         String subject,
         String topic,
@@ -25,6 +27,7 @@ public record MockExamQuestionDetailResponse(
         Boolean correct,
         @JsonInclude(JsonInclude.Include.NON_NULL) String correctAlternative,
         @JsonInclude(JsonInclude.Include.NON_NULL) String explanation,
+        List<QuestionAssetResponse> assets,
         List<AlternativeResponse> alternatives
 ) {
 }
