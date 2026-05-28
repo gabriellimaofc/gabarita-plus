@@ -16,9 +16,7 @@ ALTER TABLE questions
 ALTER TABLE questions
     ALTER COLUMN source SET DEFAULT 'PLATFORM',
     ALTER COLUMN source_url SET DEFAULT 'internal://legacy-question',
-    ALTER COLUMN source_exam SET DEFAULT exam,
-    ALTER COLUMN source_year SET DEFAULT year,
-    ALTER COLUMN statement_hash SET DEFAULT md5(coalesce(statement, ''));
+    ALTER COLUMN import_status SET DEFAULT 'PUBLISHED';
 
 UPDATE questions
 SET source = COALESCE(source, 'PLATFORM'),
