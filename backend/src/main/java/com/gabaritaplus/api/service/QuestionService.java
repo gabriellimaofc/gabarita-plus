@@ -1,5 +1,7 @@
 package com.gabaritaplus.api.service;
 
+import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewDetailResponse;
+import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse;
 import com.gabaritaplus.api.dto.question.ErrorNotebookFilterRequest;
 import com.gabaritaplus.api.dto.question.ErrorNotebookResponse;
 import com.gabaritaplus.api.dto.question.QuestionFilterRequest;
@@ -107,21 +109,22 @@ public class QuestionService {
         ));
     }
 
-    public Page<QuestionResponse> listReviewQuestions(Pageable pageable) {
-        return questionRepository.findByImportStatusIn(reviewableStatuses(), pageable)
-                .map(question -> {
-                    initializeQuestionGraph(question);
-                    return questionMapper.toResponse(question);
-                });
+    public Page<AdminImportedQuestionReviewSummaryResponse> listReviewQuestions(
+            List<QuestionImportStatus> statuses,
+            String source,
+            Integer year,
+            Pageable pageable
+    ) {
+        return questionRepository.findReviewSummaries(resolveReviewStatuses(statuses), normalizeSourceFilter(source), year, pageable);
     }
 
-    public QuestionResponse getReviewQuestion(Long id) {
+    public AdminImportedQuestionReviewDetailResponse getReviewQuestion(Long id) {
         Question question = getQuestionEntity(id);
         if (!reviewableStatuses().contains(question.getImportStatus())) {
             throw new ResourceNotFoundException("Questao nao encontrada em revisao.");
         }
         initializeQuestionGraph(question);
-        return questionMapper.toResponse(question);
+        return toAdminReviewDetailResponse(question);
     }
 
     @Transactional
@@ -443,10 +446,75 @@ public class QuestionService {
         );
     }
 
+    private List<QuestionImportStatus> resolveReviewStatuses(List<QuestionImportStatus> requestedStatuses) {
+        if (requestedStatuses == null || requestedStatuses.isEmpty()) {
+            return reviewableStatuses();
+        }
+        return requestedStatuses;
+    }
+
+    private String normalizeSourceFilter(String source) {
+        if (source == null || source.isBlank()) {
+            return null;
+        }
+        return source.trim();
+    }
+
     private void initializeQuestionGraph(Question question) {
+        if (question.getImportBatch() != null) {
+            question.getImportBatch().getId();
+        }
         question.getAssets().size();
         question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
         question.getAlternatives().size();
+    }
+
+    private AdminImportedQuestionReviewDetailResponse toAdminReviewDetailResponse(Question question) {
+        return new AdminImportedQuestionReviewDetailResponse(
+                question.getId(),
+                question.getTitle(),
+                question.getStatement(),
+                question.getStatementHtml(),
+                question.getImageUrl(),
+                question.getSubject(),
+                question.getTopic(),
+                question.getSubtopic(),
+                question.getDifficulty(),
+                question.getYear(),
+                question.getExam(),
+                question.getCompetency(),
+                question.getAbility(),
+                question.getSource(),
+                question.getSourceUrl(),
+                question.getSourceExam(),
+                question.getSourceYear(),
+                question.getSourceQuestionNumber(),
+                question.getSourceBookColor(),
+                question.getSourceDay(),
+                question.getSourcePage(),
+                question.getOfficialSourceUrl(),
+                question.getOfficialPdfUrl(),
+                question.getOfficialAnswerKeyUrl(),
+                question.getOfficialPage(),
+                question.getValidatedAgainstOfficialSource(),
+                question.getValidatedAt(),
+                question.getExternalProvider(),
+                question.getExternalProviderUrl(),
+                question.getExternalQuestionId(),
+                question.getExternalLicense(),
+                question.getImportedAt(),
+                question.getImportBatch() == null ? null : question.getImportBatch().getId(),
+                question.getStatementHash(),
+                question.getImportStatus(),
+                question.getExplanation(),
+                question.getCorrectAlternative(),
+                question.getAlternatives().size(),
+                question.getAssets().size(),
+                question.getAssets().stream().map(questionMapper::toAssetResponse).toList(),
+                question.getAlternatives().stream().map(questionMapper::toAlternativeResponse).toList(),
+                question.getCreatedAt(),
+                question.getUpdatedAt()
+        );
     }
 
     private void updateErrorNotebook(User user, Question question, boolean correct) {

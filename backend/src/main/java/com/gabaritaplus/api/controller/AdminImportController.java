@@ -4,7 +4,9 @@ import com.gabaritaplus.api.dto.common.ApiResponse;
 import com.gabaritaplus.api.dto.importer.ImportBatchResponse;
 import com.gabaritaplus.api.dto.importer.ImportQuestionsPayload;
 import com.gabaritaplus.api.dto.importer.ImportReportResponse;
-import com.gabaritaplus.api.dto.question.QuestionResponse;
+import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewDetailResponse;
+import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse;
+import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.service.QuestionService;
 import com.gabaritaplus.api.service.importer.QuestionImportService;
 import com.gabaritaplus.api.util.PageUtils;
@@ -79,13 +81,21 @@ public class AdminImportController {
     }
 
     @GetMapping("/questions/review")
-    public ResponseEntity<ApiResponse<List<QuestionResponse>>> listReviewQuestions(
+    public ResponseEntity<ApiResponse<List<AdminImportedQuestionReviewSummaryResponse>>> listReviewQuestions(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") Sort.Direction direction
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction,
+            @RequestParam(required = false) List<QuestionImportStatus> status,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) Integer year
     ) {
-        Page<QuestionResponse> result = questionService.listReviewQuestions(PageRequest.of(page, size, Sort.by(direction, sortBy)));
+        Page<AdminImportedQuestionReviewSummaryResponse> result = questionService.listReviewQuestions(
+                status,
+                source,
+                year,
+                PageRequest.of(page, size, Sort.by(direction, sortBy))
+        );
         return ResponseEntity.ok(ApiResponse.success(
                 "Questoes em revisao carregadas com sucesso.",
                 result.getContent(),
@@ -94,7 +104,7 @@ public class AdminImportController {
     }
 
     @GetMapping("/questions/review/{id}")
-    public ResponseEntity<ApiResponse<QuestionResponse>> getReviewQuestion(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> getReviewQuestion(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(
                 "Questao em revisao carregada com sucesso.",
                 questionService.getReviewQuestion(id)

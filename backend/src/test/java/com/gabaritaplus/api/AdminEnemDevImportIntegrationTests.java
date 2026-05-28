@@ -3,9 +3,15 @@ package com.gabaritaplus.api;
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevAlternativeResponse;
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevQuestionResponse;
 import com.gabaritaplus.api.entity.Question;
+import com.gabaritaplus.api.entity.Role;
+import com.gabaritaplus.api.entity.User;
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
+import com.gabaritaplus.api.entity.enums.RoleName;
 import com.gabaritaplus.api.repository.QuestionRepository;
+import com.gabaritaplus.api.repository.RoleRepository;
+import com.gabaritaplus.api.repository.UserRepository;
+import com.gabaritaplus.api.security.JwtService;
 import com.gabaritaplus.api.service.importer.EnemDevApiClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,15 +19,21 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
@@ -32,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
         "app.seed.enabled=false",
@@ -45,6 +58,18 @@ class AdminEnemDevImportIntegrationTests {
 
     @Autowired
     private QuestionRepository questionRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @MockBean
     private EnemDevApiClient enemDevApiClient;
@@ -101,13 +126,30 @@ class AdminEnemDevImportIntegrationTests {
     void reviewEndpointsListAndDetailNeedReviewQuestions() throws Exception {
         Question question = buildReviewQuestion();
         Question saved = questionRepository.save(question);
+        Question published = questionRepository.save(buildPublishedQuestion());
 
         mockMvc.perform(get("/admin/import/questions/review"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].id", hasItem(saved.getId().intValue())))
+                .andExpect(jsonPath("$.data[*].id", not(hasItem(published.getId().intValue()))))
                 .andExpect(jsonPath("$.data[0].importStatus").value("NEEDS_REVIEW"))
                 .andExpect(jsonPath("$.data[0].source").value("ENEM_DEV"))
-                .andExpect(jsonPath("$.data[0].validatedAgainstOfficialSource").value(false));
+                .andExpect(jsonPath("$.data[0].validatedAgainstOfficialSource").value(false))
+                .andExpect(jsonPath("$.data[0].importBatchId").isEmpty())
+                .andExpect(jsonPath("$.data[0].alternativesCount").value(0))
+                .andExpect(jsonPath("$.data[0].assetsCount").value(0));
+
+        mockMvc.perform(get("/admin/import/questions/review")
+                        .param("status", "PUBLISHED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].id", hasItem(published.getId().intValue())));
+
+        mockMvc.perform(get("/admin/import/questions/review")
+                        .param("status", "NEEDS_REVIEW")
+                        .param("source", "ENEM_DEV")
+                        .param("year", "2023"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].id", hasItem(saved.getId().intValue())));
 
         mockMvc.perform(get("/admin/import/questions/review/{id}", saved.getId()))
                 .andExpect(status().isOk())
@@ -115,7 +157,12 @@ class AdminEnemDevImportIntegrationTests {
                 .andExpect(jsonPath("$.data.importStatus").value("NEEDS_REVIEW"))
                 .andExpect(jsonPath("$.data.source").value("ENEM_DEV"))
                 .andExpect(jsonPath("$.data.externalProvider").value("enem.dev"))
-                .andExpect(jsonPath("$.data.validatedAgainstOfficialSource").value(false));
+                .andExpect(jsonPath("$.data.validatedAgainstOfficialSource").value(false))
+                .andExpect(jsonPath("$.data.importBatchId").isEmpty())
+                .andExpect(jsonPath("$.data.alternativesCount").value(0))
+                .andExpect(jsonPath("$.data.assetsCount").value(0))
+                .andExpect(jsonPath("$.data.alternatives").isArray())
+                .andExpect(jsonPath("$.data.assets").isArray());
     }
 
     @Test
@@ -126,6 +173,16 @@ class AdminEnemDevImportIntegrationTests {
 
         mockMvc.perform(get("/admin/import/questions/review/1"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void needsReviewQuestionStaysHiddenFromStudentEndpoints() throws Exception {
+        Question saved = questionRepository.save(buildReviewQuestion());
+        User student = createUser();
+
+        mockMvc.perform(get("/questions/{id}", saved.getId())
+                        .header("Authorization", authorizationHeader(student)))
+                .andExpect(status().isNotFound());
     }
 
     private String asJson(Object payload) throws Exception {
@@ -155,5 +212,47 @@ class AdminEnemDevImportIntegrationTests {
         question.setExternalQuestionId("2023:1:linguagens:default");
         question.setStatementHash("review-test-hash");
         return question;
+    }
+
+    private Question buildPublishedQuestion() {
+        Question question = buildReviewQuestion();
+        question.setTitle("Questao publicada");
+        question.setImportStatus(QuestionImportStatus.PUBLISHED);
+        question.setStatementHash("published-review-test-hash");
+        return question;
+    }
+
+    private User createUser() {
+        Role userRole = roleRepository.findByName(RoleName.ROLE_USER)
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setName(RoleName.ROLE_USER);
+                    role.setDescription("Aluno");
+                    return roleRepository.save(role);
+                });
+
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        User user = new User();
+        user.setFullName("Aluno " + suffix);
+        user.setEmail("aluno." + suffix + "@example.com");
+        user.setUsername("aluno" + suffix);
+        user.setPassword(passwordEncoder.encode("User@123"));
+        user.getRoles().add(userRole);
+        return userRepository.save(user);
+    }
+
+    private String authorizationHeader(User user) {
+        return "Bearer " + generateAccessToken(user);
+    }
+
+    private String generateAccessToken(User user) {
+        UserDetails userDetails = org.springframework.security.core.userdetails.User
+                .withUsername(user.getEmail())
+                .password("ignored")
+                .authorities(user.getRoles().stream()
+                        .map(role -> new SimpleGrantedAuthority(role.getName().name()))
+                        .toList())
+                .build();
+        return jwtService.generateAccessToken(userDetails);
     }
 }
