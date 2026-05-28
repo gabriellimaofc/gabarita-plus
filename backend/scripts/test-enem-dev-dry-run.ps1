@@ -10,6 +10,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputEncoding = [Console]::OutputEncoding
 
 function Write-Step {
     param([string]$Message)
@@ -24,8 +27,16 @@ function Read-ErrorResponse {
         return $Exception.Message
     }
 
-    $reader = New-Object System.IO.StreamReader($Exception.Response.GetResponseStream())
-    return $reader.ReadToEnd()
+    $reader = New-Object System.IO.StreamReader(
+        $Exception.Response.GetResponseStream(),
+        [System.Text.Encoding]::UTF8,
+        $true
+    )
+    try {
+        return $reader.ReadToEnd()
+    } finally {
+        $reader.Dispose()
+    }
 }
 
 function Invoke-ApiJson {

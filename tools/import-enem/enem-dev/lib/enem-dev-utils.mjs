@@ -12,6 +12,7 @@ import {
 
 export const ENEM_DEV_API_BASE_URL = "https://api.enem.dev/v1";
 export const ENEM_DEV_PROVIDER_URL = "https://enem.dev";
+const MOJIBAKE_MARKERS = ["Ã", "Â", "â€", "â€“", "â€œ", "â€"];
 
 export function parseCliArgs(argv) {
   const options = {
@@ -148,7 +149,7 @@ export function normalizeEnemDevQuestion(question, requestedYear) {
   }));
 
   const normalized = {
-    title: optional(question.title) || `ENEM ${requestedYear} - Questao ${question.index}`,
+    title: optional(question.title) || `ENEM ${requestedYear} - Questão ${question.index}`,
     statement: combineStatement(question.context, question.alternativesIntroduction),
     statementHtml: null,
     imageUrl: Array.isArray(question.files) && question.files.length > 0 ? question.files[0] : null,
@@ -395,9 +396,34 @@ function optional(value) {
     return null;
   }
   const trimmed = String(value).trim();
-  return trimmed ? trimmed : null;
+  return trimmed ? repairMojibakeIfNeeded(trimmed) : null;
 }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function repairMojibakeIfNeeded(value) {
+  if (!value || !containsMojibake(value)) {
+    return value;
+  }
+
+  const repaired = Buffer.from(value, "latin1").toString("utf8");
+  return mojibakeScore(repaired) < mojibakeScore(value) ? repaired : value;
+}
+
+function containsMojibake(value) {
+  return mojibakeScore(value) > 0;
+}
+
+function mojibakeScore(value) {
+  return MOJIBAKE_MARKERS.reduce((score, marker) => {
+    let count = 0;
+    let index = value.indexOf(marker);
+    while (index !== -1) {
+      count += 1;
+      index = value.indexOf(marker, index + marker.length);
+    }
+    return score + count;
+  }, 0);
 }

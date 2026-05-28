@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +32,7 @@ public class EnemDevImportService {
 
     private static final int DEFAULT_SAMPLE_LIMIT = 1;
     private static final int MAX_SAMPLE_LIMIT = 10;
+    private static final List<String> MOJIBAKE_MARKERS = List.of("Ã", "Â", "â€", "â€“", "â€œ", "â€");
     private static final String ENEM_DEV_SOURCE = "ENEM_DEV";
     private static final String ENEM_DEV_PROVIDER = "enem.dev";
     private static final String ENEM_DEV_PROVIDER_URL = "https://enem.dev";
@@ -119,7 +121,7 @@ public class EnemDevImportService {
     private EnemDevYearResponse toYearResponse(EnemDevExamResponse exam) {
         return new EnemDevYearResponse(
                 exam.year(),
-                exam.title(),
+                repairMojibakeIfNeeded(exam.title()),
                 mapLabels(exam.disciplines()),
                 mapLabels(exam.languages()),
                 exam.questions() == null ? null : exam.questions().size()
@@ -132,6 +134,7 @@ public class EnemDevImportService {
         }
         return values.stream()
                 .map(item -> item.label() == null || item.label().isBlank() ? item.value() : item.label())
+                .map(this::repairMojibakeIfNeeded)
                 .filter(Objects::nonNull)
                 .toList();
     }
@@ -278,9 +281,9 @@ public class EnemDevImportService {
 
     private String normalizeTitle(String title, Integer year, Integer index) {
         if (title != null && !title.isBlank()) {
-            return title.trim();
+            return repairMojibakeIfNeeded(title.trim());
         }
-        return "ENEM " + year + " - Questao " + index;
+        return "ENEM " + year + " - Questão " + index;
     }
 
     private String combineStatement(String context, String alternativesIntroduction) {
@@ -349,7 +352,7 @@ public class EnemDevImportService {
             return null;
         }
         String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        return trimmed.isEmpty() ? null : repairMojibakeIfNeeded(trimmed);
     }
 
     private String normalizeText(String value) {
@@ -362,5 +365,30 @@ public class EnemDevImportService {
             return DEFAULT_SAMPLE_LIMIT;
         }
         return Math.min(requestedLimit, MAX_SAMPLE_LIMIT);
+    }
+
+    private String repairMojibakeIfNeeded(String value) {
+        if (value == null || value.isBlank() || !containsMojibake(value)) {
+            return value;
+        }
+
+        String repaired = new String(value.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        return mojibakeScore(repaired) < mojibakeScore(value) ? repaired : value;
+    }
+
+    private boolean containsMojibake(String value) {
+        return mojibakeScore(value) > 0;
+    }
+
+    private int mojibakeScore(String value) {
+        int score = 0;
+        for (String marker : MOJIBAKE_MARKERS) {
+            int index = value.indexOf(marker);
+            while (index >= 0) {
+                score++;
+                index = value.indexOf(marker, index + marker.length());
+            }
+        }
+        return score;
     }
 }

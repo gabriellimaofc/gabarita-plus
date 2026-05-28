@@ -45,12 +45,12 @@ class AdminEnemDevImportIntegrationTests {
     void dryRunKeepsExternalQuestionsInNeedsReview() throws Exception {
         when(enemDevApiClient.listQuestions(eq(2023), eq(1), isNull(), isNull()))
                 .thenReturn(List.of(new EnemDevQuestionResponse(
-                        "Questao 1 - ENEM 2023",
+                        "QuestÃ£o 1 - ENEM 2023",
                         1,
                         "linguagens",
                         "espanhol",
                         2023,
-                        "Observe o grafico e responda a pergunta.",
+                        "Observe o grÃ¡fico e responda Ã  pergunta.",
                         List.of(),
                         "A",
                         "Selecione a alternativa correta.",
@@ -73,6 +73,7 @@ class AdminEnemDevImportIntegrationTests {
                 .andExpect(jsonPath("$.data.needsReview").value(1))
                 .andExpect(jsonPath("$.data.invalid").value(0))
                 .andExpect(jsonPath("$.data.batchId").isEmpty())
+                .andExpect(jsonPath("$.data.itemErrors[0].title").value("Questão 1 - ENEM 2023"))
                 .andExpect(jsonPath("$.data.itemErrors[0].errors[0]")
                         .value("Questao marcada como NEEDS_REVIEW por completude ou texto suspeito."));
     }
