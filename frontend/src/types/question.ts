@@ -67,6 +67,16 @@ export interface Question {
   sourceBookColor: string | null;
   sourceDay: number | null;
   sourcePage: number | null;
+  officialSourceUrl: string | null;
+  officialPdfUrl: string | null;
+  officialAnswerKeyUrl: string | null;
+  officialPage: number | null;
+  validatedAgainstOfficialSource: boolean;
+  validatedAt: string | null;
+  externalProvider: string | null;
+  externalProviderUrl: string | null;
+  externalQuestionId: string | null;
+  externalLicense: string | null;
   statementHash: string;
   importStatus: QuestionImportStatus;
   explanation: string | null;
@@ -78,6 +88,60 @@ export interface Question {
   alternatives: Alternative[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ReviewQuestionSummary {
+  id: number;
+  title: string;
+  source: string;
+  sourceYear: number | null;
+  sourceQuestionNumber: number | null;
+  sourceBookColor: string | null;
+  sourceDay: number | null;
+  importStatus: QuestionImportStatus;
+  validatedAgainstOfficialSource: boolean;
+  externalProvider: string | null;
+  importBatchId: number | null;
+  subject: string;
+  difficulty: DifficultyLevel;
+  createdAt: string;
+  importedAt: string | null;
+  alternativesCount: number;
+  assetsCount: number;
+}
+
+export interface ReviewQuestionDetail extends Omit<Question, "favorite" | "answered" | "answeredCorrectly"> {
+  importedAt: string | null;
+  importBatchId: number | null;
+  alternativesCount: number;
+  assetsCount: number;
+}
+
+export interface ReviewQuestionFilters {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  direction?: "ASC" | "DESC";
+  status?: QuestionImportStatus | "";
+  source?: string;
+  year?: number | "";
+  subject?: string;
+}
+
+export interface ReviewQuestionListResponse {
+  items: ReviewQuestionSummary[];
+  metadata: PageMetadata;
+}
+
+export interface ReviewQuestionStatusPayload {
+  importStatus: Exclude<QuestionImportStatus, "PUBLISHED">;
+}
+
+export interface ReviewOfficialValidationPayload {
+  officialSourceUrl?: string;
+  officialPdfUrl?: string;
+  officialAnswerKeyUrl?: string;
+  officialPage?: number | null;
 }
 
 export interface QuestionFilters {

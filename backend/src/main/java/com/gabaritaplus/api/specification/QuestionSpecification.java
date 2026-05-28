@@ -34,11 +34,13 @@ public final class QuestionSpecification {
     public static Specification<Question> reviewQuestions(
             Collection<QuestionImportStatus> statuses,
             String source,
-            Integer year
+            Integer year,
+            String subject
     ) {
         return Specification.where(inValues("importStatus", statuses))
                 .and(equalIgnoreCase("source", source))
-                .and(equalValue("sourceYear", year));
+                .and(equalValue("sourceYear", year))
+                .and(equalIgnoreCase("subject", subject));
     }
 
     private static Specification<Question> likeIgnoreCase(String field, String value) {

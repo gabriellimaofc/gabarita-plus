@@ -2,6 +2,7 @@ package com.gabaritaplus.api;
 
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevAlternativeResponse;
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevQuestionResponse;
+import com.gabaritaplus.api.entity.Alternative;
 import com.gabaritaplus.api.entity.Question;
 import com.gabaritaplus.api.entity.Role;
 import com.gabaritaplus.api.entity.User;
@@ -38,6 +39,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -147,7 +149,8 @@ class AdminEnemDevImportIntegrationTests {
         mockMvc.perform(get("/admin/import/questions/review")
                         .param("status", "NEEDS_REVIEW")
                         .param("source", "ENEM_DEV")
-                        .param("year", "2023"))
+                        .param("year", "2023")
+                        .param("subject", "Linguagens"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].id", hasItem(saved.getId().intValue())));
 
@@ -173,6 +176,49 @@ class AdminEnemDevImportIntegrationTests {
 
         mockMvc.perform(get("/admin/import/questions/review/1"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void reviewStatusActionsKeepPublicationControlled() throws Exception {
+        Question saved = questionRepository.save(buildReviewQuestionWithAlternatives());
+
+        mockMvc.perform(patch("/admin/import/questions/review/{id}/status", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of("importStatus", "INVALID"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.importStatus").value("INVALID"))
+                .andExpect(jsonPath("$.data.validatedAgainstOfficialSource").value(false));
+
+        mockMvc.perform(patch("/admin/import/questions/review/{id}/validate-official-source", saved.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "officialSourceUrl", "https://www.gov.br/inep/prova.pdf",
+                                "officialPdfUrl", "https://www.gov.br/inep/prova.pdf",
+                                "officialAnswerKeyUrl", "https://www.gov.br/inep/gabarito.pdf",
+                                "officialPage", 12
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.validatedAgainstOfficialSource").value(true))
+                .andExpect(jsonPath("$.data.importStatus").value("INVALID"));
+
+        mockMvc.perform(post("/admin/import/questions/review/{id}/publish", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.importStatus").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.validatedAgainstOfficialSource").value(true));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void publishBlocksBrokenImagesAndMissingOfficialValidation() throws Exception {
+        Question saved = questionRepository.save(buildReviewQuestionWithAlternatives());
+        saved.setStatement("![](https://enem.dev/broken-image.svg)");
+        saved.setValidatedAgainstOfficialSource(false);
+        questionRepository.save(saved);
+
+        mockMvc.perform(post("/admin/import/questions/review/{id}/publish", saved.getId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
     }
 
     @Test
@@ -219,6 +265,20 @@ class AdminEnemDevImportIntegrationTests {
         question.setTitle("Questao publicada");
         question.setImportStatus(QuestionImportStatus.PUBLISHED);
         question.setStatementHash("published-review-test-hash");
+        return question;
+    }
+
+    private Question buildReviewQuestionWithAlternatives() {
+        Question question = buildReviewQuestion();
+        question.getAlternatives().clear();
+        for (String letter : List.of("A", "B", "C", "D", "E")) {
+            Alternative alternative = new Alternative();
+            alternative.setLetter(letter);
+            alternative.setText("Alternativa " + letter);
+            alternative.setCorrect("A".equals(letter));
+            alternative.setQuestion(question);
+            question.getAlternatives().add(alternative);
+        }
         return question;
     }
 

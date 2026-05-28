@@ -23,6 +23,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => initialsFromName(user?.fullName ?? "Gabarita Plus"),
     [user?.fullName],
   );
+  const navigationItems = useMemo(() => {
+    if (user?.roles.includes("ROLE_ADMIN")) {
+      return [...navItems, { href: "/admin/import/questions/review", label: "Revisao admin" }];
+    }
+    return navItems;
+  }, [user?.roles]);
 
   return (
     <div className="min-h-screen">
@@ -59,7 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="mt-6 space-y-2">
-            {navItems.map((item) => (
+            {navigationItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

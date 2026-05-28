@@ -6,6 +6,8 @@ import com.gabaritaplus.api.dto.importer.ImportQuestionsPayload;
 import com.gabaritaplus.api.dto.importer.ImportReportResponse;
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewDetailResponse;
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse;
+import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionStatusRequest;
+import com.gabaritaplus.api.dto.importer.review.ValidateOfficialSourceRequest;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.service.QuestionService;
 import com.gabaritaplus.api.service.importer.QuestionImportService;
@@ -20,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -88,12 +91,14 @@ public class AdminImportController {
             @RequestParam(defaultValue = "DESC") Sort.Direction direction,
             @RequestParam(required = false) List<QuestionImportStatus> status,
             @RequestParam(required = false) String source,
-            @RequestParam(required = false) Integer year
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) String subject
     ) {
         Page<AdminImportedQuestionReviewSummaryResponse> result = questionService.listReviewQuestions(
                 status,
                 source,
                 year,
+                subject,
                 PageRequest.of(page, size, Sort.by(direction, sortBy))
         );
         return ResponseEntity.ok(ApiResponse.success(
@@ -108,6 +113,36 @@ public class AdminImportController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Questao em revisao carregada com sucesso.",
                 questionService.getReviewQuestion(id)
+        ));
+    }
+
+    @PatchMapping("/questions/review/{id}/status")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> updateReviewQuestionStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateImportedQuestionStatusRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Status da questao em revisao atualizado com sucesso.",
+                questionService.updateReviewQuestionStatus(id, request)
+        ));
+    }
+
+    @PatchMapping("/questions/review/{id}/validate-official-source")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> validateOfficialSource(
+            @PathVariable Long id,
+            @RequestBody ValidateOfficialSourceRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Questao marcada como validada contra a fonte oficial.",
+                questionService.validateOfficialSource(id, request)
+        ));
+    }
+
+    @PostMapping("/questions/review/{id}/publish")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> publishReviewQuestion(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Questao publicada com sucesso.",
+                questionService.publishReviewQuestion(id)
         ));
     }
 }

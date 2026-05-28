@@ -2,6 +2,8 @@ package com.gabaritaplus.api.service;
 
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewDetailResponse;
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse;
+import com.gabaritaplus.api.dto.importer.review.ValidateOfficialSourceRequest;
+import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionStatusRequest;
 import com.gabaritaplus.api.dto.question.ErrorNotebookFilterRequest;
 import com.gabaritaplus.api.dto.question.ErrorNotebookResponse;
 import com.gabaritaplus.api.dto.question.QuestionFilterRequest;
@@ -114,13 +116,15 @@ public class QuestionService {
             List<QuestionImportStatus> statuses,
             String source,
             Integer year,
+            String subject,
             Pageable pageable
     ) {
         Page<Question> page = questionRepository.findAll(
                 QuestionSpecification.reviewQuestions(
                         resolveReviewStatuses(statuses),
                         normalizeSourceFilter(source),
-                        year
+                        year,
+                        normalizeSubjectFilter(subject)
                 ),
                 pageable
         );
@@ -134,11 +138,63 @@ public class QuestionService {
 
     public AdminImportedQuestionReviewDetailResponse getReviewQuestion(Long id) {
         Question question = getQuestionEntity(id);
-        if (!reviewableStatuses().contains(question.getImportStatus())) {
-            throw new ResourceNotFoundException("Questao nao encontrada em revisao.");
-        }
         initializeQuestionGraph(question);
         return toAdminReviewDetailResponse(question);
+    }
+
+    @Transactional
+    public AdminImportedQuestionReviewDetailResponse updateReviewQuestionStatus(
+            Long id,
+            UpdateImportedQuestionStatusRequest request
+    ) {
+        Question question = getQuestionEntity(id);
+        QuestionImportStatus targetStatus = request.importStatus();
+        if (targetStatus == QuestionImportStatus.PUBLISHED) {
+            throw new IllegalArgumentException("Use o endpoint de publicacao para publicar esta questao.");
+        }
+        question.setImportStatus(targetStatus);
+        Question saved = questionRepository.save(question);
+        initializeQuestionGraph(saved);
+        return toAdminReviewDetailResponse(saved);
+    }
+
+    @Transactional
+    public AdminImportedQuestionReviewDetailResponse validateOfficialSource(
+            Long id,
+            ValidateOfficialSourceRequest request
+    ) {
+        Question question = getQuestionEntity(id);
+        question.setValidatedAgainstOfficialSource(true);
+        question.setValidatedAt(OffsetDateTime.now());
+        if (request.officialSourceUrl() != null && !request.officialSourceUrl().isBlank()) {
+            question.setOfficialSourceUrl(request.officialSourceUrl().trim());
+        }
+        if (request.officialPdfUrl() != null && !request.officialPdfUrl().isBlank()) {
+            question.setOfficialPdfUrl(request.officialPdfUrl().trim());
+        }
+        if (request.officialAnswerKeyUrl() != null && !request.officialAnswerKeyUrl().isBlank()) {
+            question.setOfficialAnswerKeyUrl(request.officialAnswerKeyUrl().trim());
+        }
+        if (request.officialPage() != null) {
+            question.setOfficialPage(request.officialPage());
+        }
+        if (question.getImportStatus() == QuestionImportStatus.NEEDS_REVIEW) {
+            question.setImportStatus(QuestionImportStatus.VALIDATED);
+        }
+        Question saved = questionRepository.save(question);
+        initializeQuestionGraph(saved);
+        return toAdminReviewDetailResponse(saved);
+    }
+
+    @Transactional
+    public AdminImportedQuestionReviewDetailResponse publishReviewQuestion(Long id) {
+        Question question = getQuestionEntity(id);
+        initializeQuestionGraph(question);
+        validatePublishable(question);
+        question.setImportStatus(QuestionImportStatus.PUBLISHED);
+        Question saved = questionRepository.save(question);
+        initializeQuestionGraph(saved);
+        return toAdminReviewDetailResponse(saved);
     }
 
     @Transactional
@@ -474,6 +530,13 @@ public class QuestionService {
         return source.trim();
     }
 
+    private String normalizeSubjectFilter(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return null;
+        }
+        return subject.trim();
+    }
+
     private void initializeQuestionGraph(Question question) {
         question.getAssets().size();
         question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
@@ -549,6 +612,40 @@ public class QuestionService {
                 question.getCreatedAt(),
                 question.getUpdatedAt()
         );
+    }
+
+    private void validatePublishable(Question question) {
+        if (!Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource())) {
+            throw new IllegalArgumentException("A questao precisa ser validada contra a fonte oficial antes da publicacao.");
+        }
+        if (question.getCorrectAlternative() == null || question.getCorrectAlternative().isBlank()) {
+            throw new IllegalArgumentException("A questao precisa ter gabarito antes da publicacao.");
+        }
+        if (question.getAlternatives().size() != 5) {
+            throw new IllegalArgumentException("A questao precisa ter 5 alternativas antes da publicacao.");
+        }
+        if (hasBrokenVisualReference(question)) {
+            throw new IllegalArgumentException("A questao possui imagem ou recurso visual quebrado e nao pode ser publicada.");
+        }
+    }
+
+    private boolean hasBrokenVisualReference(Question question) {
+        if (containsBrokenImageUrl(question.getImageUrl())
+                || containsBrokenImageUrl(question.getStatement())
+                || containsBrokenImageUrl(question.getStatementHtml())) {
+            return true;
+        }
+        if (question.getAssets().stream().anyMatch(asset ->
+                containsBrokenImageUrl(asset.getUrl()) || containsBrokenImageUrl(asset.getStoragePath()))) {
+            return true;
+        }
+        return question.getAlternatives().stream()
+                .flatMap(alternative -> alternative.getAssets().stream())
+                .anyMatch(asset -> containsBrokenImageUrl(asset.getUrl()) || containsBrokenImageUrl(asset.getStoragePath()));
+    }
+
+    private boolean containsBrokenImageUrl(String value) {
+        return value != null && value.toLowerCase().contains("broken-image");
     }
 
     private void updateErrorNotebook(User user, Question question, boolean correct) {
