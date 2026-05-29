@@ -43,7 +43,7 @@ export function useAnswerQuestion() {
       );
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel registrar sua resposta.")),
+      toast.error(getErrorMessage(error, "Não foi possível registrar sua resposta.")),
   });
 }
 
@@ -59,7 +59,7 @@ export function useToggleFavorite() {
       toast.success("Favoritos atualizados.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel atualizar favoritos.")),
+      toast.error(getErrorMessage(error, "Não foi possível atualizar favoritos.")),
   });
 }
 
@@ -88,7 +88,7 @@ export function useUpdateErrorNotebookStatus() {
     },
     onError: (error) =>
       toast.error(
-        getErrorMessage(error, "Nao foi possivel atualizar o status no caderno de erros."),
+        getErrorMessage(error, "Não foi possível atualizar o status no caderno de erros."),
       ),
   });
 }

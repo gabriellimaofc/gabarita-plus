@@ -158,6 +158,10 @@
     @apply mt-5 rounded-2xl bg-muted/50 px-4 py-3 text-xs leading-6 text-muted-foreground;
   }
 
+  .question-html .question-verse {
+    @apply rounded-2xl bg-muted/35 px-4 py-3 font-serif text-[0.95rem] leading-7 text-foreground;
+  }
+
   .question-html .question-command {
     @apply mt-6 rounded-3xl border border-primary/20 bg-primary/5 px-5 py-4 font-medium text-foreground;
   }

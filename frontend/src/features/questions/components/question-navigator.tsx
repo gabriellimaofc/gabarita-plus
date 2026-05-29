@@ -43,8 +43,8 @@ export function QuestionNavigator({
   previousDisabled,
   nextDisabled,
   backLabel = "Voltar para lista",
-  previousLabel = "Questao anterior",
-  nextLabel = "Proxima questao",
+  previousLabel = "Questão anterior",
+  nextLabel = "Próxima questão",
 }: {
   currentIndex: number;
   totalCount: number;
@@ -63,7 +63,7 @@ export function QuestionNavigator({
     <div className="flex flex-col gap-3 rounded-[28px] border border-border/70 bg-background/80 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm font-semibold">
-          Questao {Math.max(currentIndex + 1, 1)} de {Math.max(totalCount, 1)}
+          Questão {Math.max(currentIndex + 1, 1)} de {Math.max(totalCount, 1)}
         </p>
         <p className="text-sm text-muted-foreground">
           Continue no mesmo fluxo sem perder seus filtros.

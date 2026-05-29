@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
 import type { DifficultyLevel, QuestionFilters } from "@/types/question";
 
 const difficultyLabel: Record<DifficultyLevel, string> = {
-  EASY: "Facil",
-  MEDIUM: "Media",
+  EASY: "Fácil",
+  MEDIUM: "Média",
   HARD: "Alta",
 };
 
@@ -112,9 +112,9 @@ export function QuestionBankView() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Banco de questoes"
-        title="Treine em sequencia, com filtros mais uteis e sem perder o contexto."
-        description="Filtre por materia, topico, dificuldade e status. Depois, resolva varias questoes em seguida com navegacao fluida entre elas."
+        eyebrow="Banco de questões"
+        title="Treine em sequência, com filtros mais úteis e sem perder o contexto."
+        description="Filtre por matéria, tópico, dificuldade e status. Depois, resolva várias questões em seguida com navegação fluida entre elas."
       />
 
       <Card>
@@ -122,7 +122,7 @@ export function QuestionBankView() {
           <div className="relative md:col-span-2 xl:col-span-2">
             <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por titulo, habilidade ou conteudo"
+              placeholder="Buscar por título, habilidade ou conteúdo"
               className="pl-11"
               value={filters.search ?? ""}
               onChange={(event) =>
@@ -135,7 +135,7 @@ export function QuestionBankView() {
           </div>
 
           <Input
-            placeholder="Materia"
+            placeholder="Matéria"
             value={filters.subject ?? ""}
             onChange={(event) =>
               updateFilters({
@@ -146,7 +146,7 @@ export function QuestionBankView() {
           />
 
           <Input
-            placeholder="Topico"
+            placeholder="Tópico"
             value={filters.topic ?? ""}
             onChange={(event) =>
               updateFilters({
@@ -167,8 +167,8 @@ export function QuestionBankView() {
             }
           >
             <option value="">Dificuldade</option>
-            <option value="EASY">Facil</option>
-            <option value="MEDIUM">Media</option>
+            <option value="EASY">Fácil</option>
+            <option value="MEDIUM">Média</option>
             <option value="HARD">Alta</option>
           </select>
 
@@ -193,7 +193,7 @@ export function QuestionBankView() {
           >
             <option value="">Status</option>
             <option value="answered">Respondidas</option>
-            <option value="unanswered">Nao respondidas</option>
+            <option value="unanswered">Não respondidas</option>
           </select>
 
           <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-6">
@@ -207,7 +207,7 @@ export function QuestionBankView() {
               }
             >
               <Heart className="size-4" />
-              {filters.favoritesOnly ? "Favoritas" : "So favoritas"}
+              {filters.favoritesOnly ? "Favoritas" : "Só favoritas"}
             </Button>
 
             <Button
@@ -220,7 +220,7 @@ export function QuestionBankView() {
               }
             >
               <SlidersHorizontal className="size-4" />
-              {filters.incorrectOnly ? "So erros" : "Revisar erros"}
+              {filters.incorrectOnly ? "Só erros" : "Revisar erros"}
             </Button>
 
             <Button variant="outline" onClick={clearFilters}>
@@ -241,7 +241,7 @@ export function QuestionBankView() {
 
       {isError ? (
         <ErrorState
-          title="Nao foi possivel carregar as questoes."
+          title="Não foi possível carregar as questões."
           description="Tente novamente ou ajuste os filtros para consultar a API outra vez."
           onRetry={() => void refetch()}
         />
@@ -249,7 +249,7 @@ export function QuestionBankView() {
 
       {!isLoading && !isError && data && data.items.length === 0 ? (
         <EmptyState
-          title="Nenhuma questao encontrada."
+          title="Nenhuma questão encontrada."
           description="Ajuste seus filtros ou limpe a busca para carregar mais resultados do banco."
           actionLabel="Limpar filtros"
           onAction={clearFilters}
@@ -320,14 +320,14 @@ export function QuestionBankView() {
                       </span>
                       <span className="inline-flex items-center gap-2">
                         <Star className="size-4" />
-                        {question.competency ?? "Competencia mapeada"}
+                        {question.competency ?? "Competência mapeada"}
                       </span>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
                       <Link href={`/questoes/${question.id}?${linkSearchParams.toString()}`}>
                         <Button>
-                          Resolver em sequencia
+                          Resolver em sequência
                           <ArrowRight className="size-4" />
                         </Button>
                       </Link>
@@ -343,7 +343,7 @@ export function QuestionBankView() {
       {data ? (
         <div className="flex flex-col gap-4 rounded-[28px] border border-border/70 bg-background/70 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-muted-foreground">
-            {data.metadata.totalElements} questoes encontradas.
+            {data.metadata.totalElements} questões encontradas.
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -366,7 +366,7 @@ export function QuestionBankView() {
                 })
               }
             >
-              Proxima
+              Próxima
             </Button>
           </div>
         </div>

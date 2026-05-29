@@ -69,7 +69,7 @@ export function LoginForm() {
           <Label htmlFor="usernameOrEmail">Email ou username</Label>
           <Input
             id="usernameOrEmail"
-            placeholder="voce@email.com"
+            placeholder="você@email.com"
             {...register("usernameOrEmail")}
           />
           {errors.usernameOrEmail ? (

@@ -29,7 +29,7 @@ import type {
 const masteryLabel: Record<MasteryStatus, string> = {
   NEW: "Pendente",
   LEARNING: "Pendente",
-  REVIEW: "Em revisao",
+  REVIEW: "Em revisão",
   MASTERED: "Dominada",
 };
 
@@ -42,7 +42,7 @@ const masteryVariant = {
 
 const priorityLabel: Record<ReviewPriority, string> = {
   HIGH: "Alta",
-  MEDIUM: "Media",
+  MEDIUM: "Média",
   LOW: "Baixa",
 };
 
@@ -111,8 +111,8 @@ export function ErrorNotebookView() {
     <div className="space-y-8">
       <PageHeader
         eyebrow="Caderno de erros"
-        title="Transforme erros em uma trilha de revisao de verdade."
-        description="Filtre por materia, topico, dificuldade, status e prioridade. Entre em modo revisao e percorra as questoes erradas em sequencia, com contexto de estudo real."
+        title="Transforme erros em uma trilha de revisão de verdade."
+        description="Filtre por matéria, tópico, dificuldade, status e prioridade. Entre em modo revisão e percorra as questões erradas em sequência, com contexto de estudo real."
       />
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -134,7 +134,7 @@ export function ErrorNotebookView() {
               <RefreshCw className="size-5" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Em revisao</p>
+              <p className="text-sm text-muted-foreground">Em revisão</p>
               <p className="text-2xl font-semibold">{reviewCount}</p>
             </div>
           </CardContent>
@@ -156,13 +156,13 @@ export function ErrorNotebookView() {
       <Card>
         <CardContent className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-5">
           <Input
-            placeholder="Materia"
+            placeholder="Matéria"
             value={filters.subject ?? ""}
             onChange={(event) => updateFilters({ subject: event.target.value })}
           />
 
           <Input
-            placeholder="Topico"
+            placeholder="Tópico"
             value={filters.topic ?? ""}
             onChange={(event) => updateFilters({ topic: event.target.value })}
           />
@@ -177,8 +177,8 @@ export function ErrorNotebookView() {
             }
           >
             <option value="">Dificuldade</option>
-            <option value="EASY">Facil</option>
-            <option value="MEDIUM">Media</option>
+            <option value="EASY">Fácil</option>
+            <option value="MEDIUM">Média</option>
             <option value="HARD">Alta</option>
           </select>
 
@@ -194,7 +194,7 @@ export function ErrorNotebookView() {
             <option value="">Status</option>
             <option value="NEW">Pendente</option>
             <option value="LEARNING">Aprendendo</option>
-            <option value="REVIEW">Em revisao</option>
+            <option value="REVIEW">Em revisão</option>
             <option value="MASTERED">Dominada</option>
           </select>
 
@@ -209,7 +209,7 @@ export function ErrorNotebookView() {
           >
             <option value="">Prioridade</option>
             <option value="HIGH">Alta</option>
-            <option value="MEDIUM">Media</option>
+            <option value="MEDIUM">Média</option>
             <option value="LOW">Baixa</option>
           </select>
 
@@ -217,13 +217,13 @@ export function ErrorNotebookView() {
             <Link
               href={
                 rawSearchParams.toString()
-                  ? `/caderno-erros/revisao?${rawSearchParams.toString()}`
-                  : "/caderno-erros/revisao"
+                  ? `/caderno-erros/revisão?${rawSearchParams.toString()}`
+                  : "/caderno-erros/revisão"
               }
             >
               <Button>
                 <Layers3 className="size-4" />
-                Modo revisao
+                Modo revisão
               </Button>
             </Link>
 
@@ -244,8 +244,8 @@ export function ErrorNotebookView() {
 
       {isError ? (
         <ErrorState
-          title="Nao foi possivel carregar o caderno de erros."
-          description="Tente novamente para buscar a revisao planejada no backend."
+          title="Não foi possível carregar o caderno de erros."
+          description="Tente novamente para buscar a revisão planejada no backend."
           onRetry={() => void refetch()}
         />
       ) : null}
@@ -253,7 +253,7 @@ export function ErrorNotebookView() {
       {!isLoading && !isError && data?.length === 0 ? (
         <EmptyState
           title="Seu caderno de erros esta limpo."
-          description="Quando voce errar uma questao, ela passa a aparecer aqui com prioridade de revisao."
+          description="Quando você errar uma questão, ela passa a aparecer aqui com prioridade de revisão."
         />
       ) : null}
 
@@ -276,7 +276,7 @@ export function ErrorNotebookView() {
                   <div>
                     <h2 className="text-lg font-semibold">{entry.questionTitle}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {entry.errorCount} erro(s) acumulados nesta questao.
+                      {entry.errorCount} erro(s) acumulados nesta questão.
                     </p>
                   </div>
                 </div>
@@ -287,15 +287,15 @@ export function ErrorNotebookView() {
                     <p>{entry.lastErrorAt ? formatDate(entry.lastErrorAt) : "Sem registro"}</p>
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">Ultima revisao</p>
+                    <p className="font-medium text-foreground">Última revisão</p>
                     <p>
                       {entry.lastReviewedAt
                         ? formatDate(entry.lastReviewedAt)
-                        : "Ainda nao revisada"}
+                        : "Ainda não revisada"}
                     </p>
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">Proxima revisao</p>
+                    <p className="font-medium text-foreground">Próxima revisão</p>
                     <p>
                       {entry.nextReviewAt ? formatDate(entry.nextReviewAt) : "Sem agenda"}
                     </p>

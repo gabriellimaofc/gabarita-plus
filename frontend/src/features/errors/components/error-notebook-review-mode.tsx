@@ -99,7 +99,7 @@ export function ErrorNotebookReviewMode() {
   if (isError) {
     return (
       <ErrorState
-        title="Nao foi possivel abrir o modo revisao."
+        title="Não foi possível abrir o modo revisão."
         description="Tente novamente para buscar a fila atualizada do caderno de erros."
         onRetry={() => void refetch()}
       />
@@ -109,8 +109,8 @@ export function ErrorNotebookReviewMode() {
   if (!notebookEntries?.length || !currentEntry) {
     return (
       <EmptyState
-        title="Nao ha questoes para revisar agora."
-        description="Seu caderno de erros nao encontrou itens para este filtro de revisao."
+        title="Não há questões para revisar agora."
+        description="Seu caderno de erros não encontrou itens para este filtro de revisão."
         actionLabel="Voltar ao caderno"
         onAction={() => router.push("/caderno-erros")}
       />
@@ -124,7 +124,7 @@ export function ErrorNotebookReviewMode() {
   if (isQuestionError || !question) {
     return (
       <ErrorState
-        title="Nao foi possivel carregar a questao da revisao."
+        title="Não foi possível carregar a questão da revisão."
         description="Tente novamente para sincronizar a fila com os dados atuais do backend."
         onRetry={() => void refetchQuestion()}
       />
@@ -150,7 +150,7 @@ export function ErrorNotebookReviewMode() {
             current={safeIndex + 1}
             total={notebookEntries.length}
             answeredCount={notebookEntries.length}
-            label="Modo revisao"
+            label="Modo revisão"
           />
 
           <Card>
@@ -210,7 +210,7 @@ export function ErrorNotebookReviewMode() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Revise, receba o feedback e siga direto para a proxima questao da fila.
+                  Revise, receba o feedback e siga direto para a próxima questão da fila.
                 </p>
                 <Button
                   disabled={!selectedAlternative || Boolean(activeAnswer) || isPending}
@@ -251,7 +251,7 @@ export function ErrorNotebookReviewMode() {
           <CardContent className="space-y-4 p-5">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-                Contexto da revisao
+                Contexto da revisão
               </p>
               <p className="mt-1 text-lg font-semibold">{currentEntry.questionTitle}</p>
             </div>
@@ -270,15 +270,15 @@ export function ErrorNotebookReviewMode() {
                 </p>
               </div>
               <div>
-                <p className="font-medium text-foreground">Ultima revisao</p>
+                <p className="font-medium text-foreground">Última revisão</p>
                 <p>
                   {currentEntry.lastReviewedAt
                     ? formatDate(currentEntry.lastReviewedAt)
-                    : "Ainda nao revisada"}
+                    : "Ainda não revisada"}
                 </p>
               </div>
               <div>
-                <p className="font-medium text-foreground">Proxima revisao</p>
+                <p className="font-medium text-foreground">Próxima revisão</p>
                 <p>
                   {currentEntry.nextReviewAt
                     ? formatDate(currentEntry.nextReviewAt)

@@ -46,7 +46,7 @@ import { AlternativeContent, QuestionContent } from "@/features/questions/compon
 import { cn } from "@/lib/utils";
 
 const statusOptions: Array<{ value: QuestionImportStatus | ""; label: string }> = [
-  { value: "", label: "Todos os status em revisao" },
+  { value: "", label: "Todos os status em revisão" },
   { value: "NEEDS_REVIEW", label: "Needs review" },
   { value: "DRAFT", label: "Draft" },
   { value: "VALIDATED", label: "Validated" },
@@ -56,10 +56,10 @@ const statusOptions: Array<{ value: QuestionImportStatus | ""; label: string }> 
 ];
 
 const autoValidationOptions: Array<{ value: AutoValidationStatus | ""; label: string }> = [
-  { value: "", label: "Todos os status automaticos" },
+  { value: "", label: "Todos os status automáticos" },
   { value: "SAFE_TO_AUTO_VALIDATE", label: "Seguras" },
-  { value: "NEEDS_HUMAN_REVIEW", label: "Revisao humana" },
-  { value: "AUTO_INVALID", label: "Auto invalidas" },
+  { value: "NEEDS_HUMAN_REVIEW", label: "Revisão humana" },
+  { value: "AUTO_INVALID", label: "Auto inválidas" },
 ];
 
 const visualKeywords = [
@@ -145,7 +145,7 @@ function markdownToHtml(markdown: string | null) {
     imageMap.set(
       token,
       isBroken
-        ? `<div class="rounded-[24px] border border-dashed border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"><strong>Imagem indisponivel</strong><p class="mt-2">${safeAlt}</p><p class="mt-1 break-all text-xs">${safeSrc}</p></div>`
+        ? `<div class="rounded-[24px] border border-dashed border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"><strong>Imagem indisponível</strong><p class="mt-2">${safeAlt}</p><p class="mt-1 break-all text-xs">${safeSrc}</p></div>`
         : `<figure class="space-y-2 rounded-[24px] border border-border/70 bg-background/70 p-3"><img src="${safeSrc}" alt="${safeAlt}" class="max-h-[420px] w-full object-contain rounded-[18px] bg-muted/20" /><figcaption class="text-xs text-muted-foreground">${safeAlt}</figcaption></figure>`,
     );
     return `\n\n${token}\n\n`;
@@ -196,25 +196,25 @@ function buildAlerts(question: ReviewQuestionDetail) {
   if (hasBrokenImageReference(question) || question.brokenImageDetected) {
     alerts.push({
       tone: "danger",
-      text: "Imagem quebrada detectada no enunciado ou nos assets. Esta questao nao pode ser publicada ainda.",
+      text: "Imagem quebrada detectada no enunciado ou nos assets. Esta questão não pode ser publicada ainda.",
     });
   }
   if (requiresVisualAsset(question) || question.requiresAssetReview) {
     alerts.push({
       tone: "warning",
-      text: "O texto menciona recurso visual, mas assetsCount esta zerado. Revisao manual obrigatoria.",
+      text: "O texto menciona recurso visual, mas assetsCount está zerado. Revisão manual obrigatória.",
     });
   }
   if (question.sourceBookColor === "UNKNOWN") {
     alerts.push({
       tone: "warning",
-      text: "Caderno de origem ainda esta como UNKNOWN. Confirme a cor oficial antes da publicacao.",
+      text: "Caderno de origem ainda está como UNKNOWN. Confirme a cor oficial antes da publicação.",
     });
   }
   if (!question.validatedAgainstOfficialSource) {
     alerts.push({
       tone: "warning",
-      text: "Questao ainda nao foi validada contra a fonte oficial do INEP.",
+      text: "Questão ainda não foi validada contra a fonte oficial do INEP.",
     });
   }
   if (hasSuspiciousText(question) || question.suspiciousTextDetected) {
@@ -295,7 +295,7 @@ function ReviewCard({
       </div>
       <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
         <p>Ano: {item.sourceYear ?? "-"}</p>
-        <p>Questao: {item.sourceQuestionNumber ?? "-"}</p>
+        <p>Questão: {item.sourceQuestionNumber ?? "-"}</p>
         <p>Alternativas: {item.alternativesCount}</p>
         <p>Assets: {item.assetsCount}</p>
       </div>
@@ -401,7 +401,7 @@ export function ImportReviewAdminView() {
     return (
       <ErrorState
         title="Acesso restrito"
-        description="Esta area de revisao de importacao esta disponivel apenas para administradores."
+        description="Esta área de revisão de importação está disponível apenas para administradores."
       />
     );
   }
@@ -479,16 +479,16 @@ export function ImportReviewAdminView() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Revisao admin"
-        title="Auditoria de questoes importadas"
-        description="Revise itens vindos do ENEM_DEV e de futuras esteiras oficiais antes de qualquer publicacao para alunos."
+        eyebrow="Revisão admin"
+        title="Auditoria de questões importadas"
+        description="Revise itens vindos do ENEM_DEV e de futuras esteiras oficiais antes de qualquer publicação para alunos."
       />
 
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-border/70 bg-gradient-to-r from-primary/10 via-background to-secondary/10">
           <CardTitle className="flex items-center gap-2">
             <FileSearch className="size-5 text-primary" />
-            Filtros de revisao
+            Filtros de revisão
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-5">
@@ -552,7 +552,7 @@ export function ImportReviewAdminView() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="autoValidationStatus">Auto validacao</Label>
+            <Label htmlFor="autoValidationStatus">Auto validação</Label>
             <select
               id="autoValidationStatus"
               className="flex h-11 w-full rounded-2xl border border-border bg-background/70 px-4 py-2 text-sm"
@@ -578,8 +578,8 @@ export function ImportReviewAdminView() {
       <div className="grid gap-3 md:grid-cols-5">
         {[
           ["Seguras", countersQuery.data?.safe ?? 0],
-          ["Em revisao", countersQuery.data?.needsReview ?? 0],
-          ["Invalidas", countersQuery.data?.invalid ?? 0],
+          ["Em revisão", countersQuery.data?.needsReview ?? 0],
+          ["Inválidas", countersQuery.data?.invalid ?? 0],
           ["Imagem quebrada", countersQuery.data?.brokenImages ?? 0],
           ["Pendentes INEP", countersQuery.data?.pendingInep ?? 0],
         ].map(([label, value]) => (
@@ -680,7 +680,7 @@ export function ImportReviewAdminView() {
       {officialValidationReport ? (
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/70">
-            <CardTitle>Relatorio da validacao INEP</CardTitle>
+            <CardTitle>Relatório da validação INEP</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
@@ -689,7 +689,7 @@ export function ImportReviewAdminView() {
                 ["Validadas", officialValidationReport.validated],
                 ["Atualizadas", officialValidationReport.updatedQuestions],
                 ["Falhas", officialValidationReport.failed],
-                ["Ambiguas", officialValidationReport.ambiguousOfficialSource],
+                ["Ambíguas", officialValidationReport.ambiguousOfficialSource],
                 ["Gabarito ausente", officialValidationReport.answerKeyMissing],
                 ["Gabarito divergente", officialValidationReport.answerKeyMismatch],
                 ["Pendentes INEP", officialValidationReport.pendingInep],
@@ -706,7 +706,7 @@ export function ImportReviewAdminView() {
                 <div key={`${item.questionId}-${item.sourceQuestionNumber}`} className="rounded-[16px] bg-muted/40 p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={item.updated ? "success" : "warning"}>
-                      {item.updated ? "Atualizada" : "Sem mudanca"}
+                      {item.updated ? "Atualizada" : "Sem mudança"}
                     </Badge>
                     <Badge variant={item.newValidatedAgainstOfficialSource ? "success" : "warning"}>
                       {item.newValidatedAgainstOfficialSource ? "INEP validado" : "Pendente INEP"}
@@ -714,7 +714,7 @@ export function ImportReviewAdminView() {
                     <span className="font-semibold">#{item.sourceQuestionNumber ?? "-"} {item.title}</span>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Score: {item.previousScore ?? "-"} {"->"} {item.newScore ?? "-"} | Validacao:{" "}
+                    Score: {item.previousScore ?? "-"} {"->"} {item.newScore ?? "-"} | Validação:{" "}
                     {String(item.previousValidatedAgainstOfficialSource)} {"->"} {String(item.newValidatedAgainstOfficialSource)}
                   </p>
                   {item.warnings.length ? (
@@ -734,7 +734,7 @@ export function ImportReviewAdminView() {
         <Card className="overflow-hidden xl:sticky xl:top-24">
           <CardHeader className="border-b border-border/70">
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Fila de revisao</CardTitle>
+              <CardTitle>Fila de revisão</CardTitle>
               {reviewQuery.data ? (
                 <Badge variant="outline">
                   {reviewQuery.data.metadata.totalElements} itens
@@ -745,7 +745,7 @@ export function ImportReviewAdminView() {
           <CardContent className="space-y-4 pt-6">
             {reviewQuery.isError ? (
               <ErrorState
-                title="Nao foi possivel carregar a fila de revisao."
+                title="Não foi possível carregar a fila de revisão."
                 description="Tente novamente para buscar o estado mais recente do backend."
                 onRetry={() => void reviewQuery.refetch()}
               />
@@ -792,15 +792,15 @@ export function ImportReviewAdminView() {
                         }))
                       }
                     >
-                      Proxima
+                      Próxima
                     </Button>
                   </div>
                 </div>
               </>
             ) : (
               <EmptyState
-                title="Nenhuma questao encontrada"
-                description="Ajuste os filtros para localizar itens em revisao, validacao ou auditoria."
+                title="Nenhuma questão encontrada"
+                description="Ajuste os filtros para localizar itens em revisão, validação ou auditoria."
               />
             )}
           </CardContent>
@@ -809,13 +809,13 @@ export function ImportReviewAdminView() {
         <div className="min-w-0 space-y-6">
           {selectedId === null ? (
             <EmptyState
-              title="Selecione uma questao"
-              description="Escolha um item da fila para revisar o enunciado, os assets e as informacoes de auditoria."
+              title="Selecione uma questão"
+              description="Escolha um item da fila para revisar o enunciado, os assets e as informações de auditoria."
             />
           ) : detailQuery.isError ? (
             <ErrorState
-              title="Nao foi possivel carregar o detalhe da revisao."
-              description="Tente novamente para abrir a questao selecionada."
+              title="Não foi possível carregar o detalhe da revisão."
+              description="Tente novamente para abrir a questão selecionada."
               onRetry={() => void detailQuery.refetch()}
             />
           ) : selectedQuestion ? (
@@ -867,7 +867,7 @@ export function ImportReviewAdminView() {
                           onClick={() => nextItem && setSelectedId(nextItem.id)}
                           disabled={!nextItem}
                         >
-                          Proxima
+                          Próxima
                           <ArrowRight className="size-4" />
                         </Button>
                       </div>
@@ -885,21 +885,21 @@ export function ImportReviewAdminView() {
                           }
                           disabled={updateStatus.isPending}
                         >
-                          Manter em revisao
+                          Manter em revisão
                         </Button>
                         <Button
                           variant="outline"
                           onClick={() => void handleStatusAndContinue("NEEDS_REVIEW")}
                           disabled={updateStatus.isPending}
                         >
-                          Salvar e proxima
+                          Salvar e próxima
                         </Button>
                         <Button
                           variant="outline"
                           onClick={() => void handleStatusAndContinue("INVALID")}
                           disabled={updateStatus.isPending}
                         >
-                          Marcar invalida e proxima
+                          Marcar inválida e próxima
                         </Button>
                         <Button
                           variant="secondary"
@@ -931,7 +931,7 @@ export function ImportReviewAdminView() {
                         </Button>
                         <Button
                           onClick={() => {
-                            if (!window.confirm("Publicar esta questao para os alunos?")) {
+                            if (!window.confirm("Publicar esta questão para os alunos?")) {
                               return;
                             }
                             publishQuestion.mutate(selectedQuestion.id);
@@ -969,7 +969,7 @@ export function ImportReviewAdminView() {
                   ) : (
                     <div className="flex items-start gap-3 rounded-[22px] border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
                       <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-                      <p>Nenhum alerta automatico encontrado nesta revisao.</p>
+                      <p>Nenhum alerta automatico encontrado nesta revisão.</p>
                     </div>
                   )}
 
@@ -1058,7 +1058,7 @@ export function ImportReviewAdminView() {
                           </div>
                           {selectedQuestion.explanation ? (
                             <div className="rounded-[22px] border border-border/70 bg-background/70 p-4">
-                              <p className="text-sm font-semibold">Explicacao</p>
+                              <p className="text-sm font-semibold">Explicação</p>
                               <p className="mt-2 text-sm leading-7 text-muted-foreground">
                                 {selectedQuestion.explanation}
                               </p>
@@ -1122,7 +1122,7 @@ export function ImportReviewAdminView() {
                             </div>
                             {(autoWarnings.length || autoErrors.length) ? (
                               <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
-                                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Auto validacao</p>
+                                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Auto validação</p>
                                 {autoErrors.length ? (
                                   <div className="mt-3 space-y-1">
                                     <p className="text-sm font-semibold text-rose-600">Errors</p>
@@ -1147,7 +1147,7 @@ export function ImportReviewAdminView() {
 
                       <Card className="min-w-0 border-border/70 bg-background/60">
                         <CardHeader>
-                          <CardTitle>Validacao manual com INEP</CardTitle>
+                          <CardTitle>Validação manual com INEP</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="space-y-2">

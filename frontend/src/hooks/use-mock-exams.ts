@@ -52,7 +52,7 @@ export function useCreateMockExam() {
       toast.success("Simulado criado com sucesso.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel criar o simulado.")),
+      toast.error(getErrorMessage(error, "Não foi possível criar o simulado.")),
   });
 }
 
@@ -74,7 +74,7 @@ export function useSaveMockExamAnswer() {
       });
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel salvar a resposta do simulado.")),
+      toast.error(getErrorMessage(error, "Não foi possível salvar a resposta do simulado.")),
   });
 }
 
@@ -104,6 +104,6 @@ export function useFinishMockExam() {
       toast.success("Simulado finalizado com sucesso.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel finalizar o simulado.")),
+      toast.error(getErrorMessage(error, "Não foi possível finalizar o simulado.")),
   });
 }

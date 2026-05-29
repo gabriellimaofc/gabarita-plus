@@ -37,7 +37,7 @@ export function AnswerFeedback({
               <CircleAlert className="size-5 text-amber-500" />
             )}
             <p className="font-semibold">
-              {correct ? "Voce acertou." : "Voce errou, mas da para transformar isso em revisao util."}
+              {correct ? "Você acertou." : "Você errou, mas dá para transformar isso em revisão útil."}
             </p>
           </div>
           <p className="text-sm leading-7 text-muted-foreground">
@@ -62,10 +62,10 @@ export function AnswerFeedback({
           <QuestionRichText html={null} fallbackText={explanation} />
         ) : (
           <div className="space-y-2">
-            <p className="font-medium text-foreground">Explicacao revisada ainda nao cadastrada.</p>
+            <p className="font-medium text-foreground">Explicação revisada ainda não cadastrada.</p>
             <p>
               Por enquanto, registramos sua resposta e mostramos o gabarito oficial. A equipe pode adicionar uma
-              resolucao comentada depois da revisao pedagogica.
+              resolução comentada depois da revisão pedagogica.
             </p>
           </div>
         )}

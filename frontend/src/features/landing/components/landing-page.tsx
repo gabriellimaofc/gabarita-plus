@@ -35,7 +35,7 @@ const benefits = [
 ];
 
 const proofPoints = [
-  "Rotina mobile first pensada para estudo rápido",
+  "Rotina mobile first pensadá para estudo rápido",
   "Dark mode preparado para longas sessões",
   "Arquitetura pronta para integração com JWT e API REST",
   "Experiência SaaS premium com foco em velocidade",

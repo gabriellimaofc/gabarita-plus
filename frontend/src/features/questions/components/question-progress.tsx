@@ -23,7 +23,7 @@ export function QuestionProgress({
             {label}
           </p>
           <p className="mt-1 text-lg font-semibold">
-            Questao {Math.max(current, 1)} de {Math.max(total, 1)}
+            Questão {Math.max(current, 1)} de {Math.max(total, 1)}
           </p>
         </div>
         <div className="text-right text-sm text-muted-foreground">

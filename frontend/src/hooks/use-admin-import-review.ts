@@ -51,7 +51,7 @@ export function useCreateOfficialSource() {
       toast.success("Fonte oficial cadastrada.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel cadastrar a fonte oficial.")),
+      toast.error(getErrorMessage(error, "Não foi possível cadastrar a fonte oficial.")),
   });
 }
 
@@ -65,7 +65,7 @@ export function useDeleteOfficialSource() {
       toast.success("Fonte oficial removida.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel remover a fonte oficial.")),
+      toast.error(getErrorMessage(error, "Não foi possível remover a fonte oficial.")),
   });
 }
 
@@ -79,10 +79,10 @@ export function useUpdateReviewStatus() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
-      toast.success("Status de revisao atualizado.");
+      toast.success("Status de revisão atualizado.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel atualizar o status da questao.")),
+      toast.error(getErrorMessage(error, "Não foi possível atualizar o status da questão.")),
   });
 }
 
@@ -101,10 +101,10 @@ export function useValidateOfficialSource() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
-      toast.success("Questao marcada como validada na fonte oficial.");
+      toast.success("Questão marcada como validada na fonte oficial.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel validar a fonte oficial.")),
+      toast.error(getErrorMessage(error, "Não foi possível validar a fonte oficial.")),
   });
 }
 
@@ -118,10 +118,10 @@ export function usePublishReviewQuestion() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
       queryClient.invalidateQueries({ queryKey: ["questions"] });
-      toast.success("Questao publicada com sucesso.");
+      toast.success("Questão publicada com sucesso.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel publicar a questao.")),
+      toast.error(getErrorMessage(error, "Não foi possível publicar a questão.")),
   });
 }
 
@@ -134,10 +134,10 @@ export function useAutoValidateQuestion() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
-      toast.success("Auto validacao concluida.");
+      toast.success("Auto validação concluída.");
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel auto validar a questao.")),
+      toast.error(getErrorMessage(error, "Não foi possível auto validar a questão.")),
   });
 }
 
@@ -149,10 +149,10 @@ export function useAutoValidateBatch() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
-      toast.success(`Auto validacao concluida: ${result.processed} questoes processadas.`);
+      toast.success(`Auto validação concluída: ${result.processed} questões processadas.`);
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel auto validar o lote.")),
+      toast.error(getErrorMessage(error, "Não foi possível auto validar o lote.")),
   });
 }
 
@@ -165,10 +165,10 @@ export function useAutoPublishSafe() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.invalidateQueries({ queryKey: ["questions"] });
-      toast.success(`Publicacao segura processada: ${result.published} questoes publicadas.`);
+      toast.success(`Publicação segura processada: ${result.published} questões publicadas.`);
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel publicar questoes seguras.")),
+      toast.error(getErrorMessage(error, "Não foi possível publicar questões seguras.")),
   });
 }
 
@@ -181,10 +181,10 @@ export function useRecoverAssets() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
-      toast.success(`Recuperacao processada: ${result.assetRecovered} assets recuperados.`);
+      toast.success(`Recuperação processada: ${result.assetRecovered} assets recuperados.`);
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel recuperar assets com INEP.")),
+      toast.error(getErrorMessage(error, "Não foi possível recuperar assets com INEP.")),
   });
 }
 
@@ -197,10 +197,10 @@ export function useRecoverAssetsBatch() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
-      toast.success(`Recuperacao em lote processada: ${result.processed} questoes.`);
+      toast.success(`Recuperação em lote processada: ${result.processed} questões.`);
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel recuperar assets do lote.")),
+      toast.error(getErrorMessage(error, "Não foi possível recuperar assets do lote.")),
   });
 }
 
@@ -213,10 +213,10 @@ export function useValidateAgainstOfficialSource() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
-      toast.success(`Validacao INEP: ${result.validated} validadas, ${result.failed} falhas.`);
+      toast.success(`Validação INEP: ${result.validated} validadas, ${result.failed} falhas.`);
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel validar com INEP.")),
+      toast.error(getErrorMessage(error, "Não foi possível validar com INEP.")),
   });
 }
 
@@ -229,9 +229,9 @@ export function useValidateAgainstOfficialSourceBatch() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
-      toast.success(`Validacao INEP em lote: ${result.validated} validadas, ${result.failed} falhas.`);
+      toast.success(`Validação INEP em lote: ${result.validated} validadas, ${result.failed} falhas.`);
     },
     onError: (error) =>
-      toast.error(getErrorMessage(error, "Nao foi possivel validar o lote com INEP.")),
+      toast.error(getErrorMessage(error, "Não foi possível validar o lote com INEP.")),
   });
 }

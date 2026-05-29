@@ -60,7 +60,7 @@ function normalizeImportedText(value: string) {
     .replace(/\[…\]/g, "[...]")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
-    .replace(/\s+(Disponivel em:|Disponível em:|Fonte:)/gi, "\n\n$1")
+    .replace(/\s+(Disponível em:|Fonte:)/gi, "\n\n$1")
     .replace(/\s+(Acesso em:)/gi, "\n$1")
     .trim();
 }
@@ -84,7 +84,7 @@ function renderInlineMarkdown(value: string) {
 
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt: string, url: string) => {
     if (BLOCKED_IMAGE_PATTERN.test(url)) {
-      return '<span class="question-image-placeholder">Imagem indisponivel aguardando revisao oficial.</span>';
+      return '<span class="question-image-placeholder">Imagem indisponível aguardando revisão oficial.</span>';
     }
 
     return `<img src="${sanitizeUrl(url)}" alt="${escapeHtml(alt)}" loading="lazy" />`;
@@ -104,7 +104,7 @@ function renderInlineMarkdown(value: string) {
 }
 
 function paragraphClass(value: string, index: number, total: number) {
-  if (/^(Disponivel em:|Disponível em:|Fonte:|Refer[eê]ncia:|Acesso em:)/i.test(value)) {
+  if (/^(Disponível em:|Fonte:|Refer[eê]ncia:|Acesso em:)/i.test(value)) {
     return ' class="question-reference"';
   }
 
@@ -118,12 +118,60 @@ function paragraphClass(value: string, index: number, total: number) {
   return "";
 }
 
+function isVerseCandidate(block: string) {
+  const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+
+  return (
+    lines.length === 1 &&
+    block.length <= 95 &&
+    !/^#{1,4}\s+/.test(block) &&
+    !/^[-*]\s+/.test(block) &&
+    !/^\d+[.)]\s+/.test(block) &&
+    !/^>\s?/.test(block) &&
+    !/^(Disponível em:|Fonte:|Refer[eê]ncia:|Acesso em:)/i.test(block) &&
+    !/!\[.*\]\(.+\)/.test(block)
+  );
+}
+
+function groupCompactVerseBlocks(blocks: string[]) {
+  const grouped: Array<{ type: "paragraph" | "verse"; blocks: string[] }> = [];
+  let index = 0;
+
+  while (index < blocks.length) {
+    if (!isVerseCandidate(blocks[index])) {
+      grouped.push({ type: "paragraph", blocks: [blocks[index]] });
+      index += 1;
+      continue;
+    }
+
+    const verseBlocks: string[] = [];
+    while (index < blocks.length && isVerseCandidate(blocks[index])) {
+      verseBlocks.push(blocks[index]);
+      index += 1;
+    }
+
+    if (verseBlocks.length >= 3) {
+      grouped.push({ type: "verse", blocks: verseBlocks });
+    } else {
+      grouped.push(...verseBlocks.map((block) => ({ type: "paragraph" as const, blocks: [block] })));
+    }
+  }
+
+  return grouped;
+}
+
 function markdownToSafeHtml(markdown: string) {
   const normalized = normalizeImportedText(markdown);
   const blocks = normalized.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+  const groupedBlocks = groupCompactVerseBlocks(blocks);
 
-  return blocks
-    .map((block, index) => {
+  return groupedBlocks
+    .map((group, index) => {
+      if (group.type === "verse") {
+        return `<p class="question-verse">${group.blocks.map(renderInlineMarkdown).join("<br />")}</p>`;
+      }
+
+      const block = group.blocks[0];
       const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
       const firstLine = lines[0] ?? "";
 
@@ -145,7 +193,7 @@ function markdownToSafeHtml(markdown: string) {
       }
 
       const content = lines.map(renderInlineMarkdown).join("<br />");
-      return `<p${paragraphClass(block, index, blocks.length)}>${content}</p>`;
+      return `<p${paragraphClass(block, index, groupedBlocks.length)}>${content}</p>`;
     })
     .join("");
 }
@@ -186,7 +234,7 @@ function sanitizeHtml(html: string) {
 
         if (tag === "img" && name === "src") {
           if (BLOCKED_IMAGE_PATTERN.test(value)) {
-            return '<span class="question-image-placeholder">Imagem indisponivel aguardando revisao oficial.</span>';
+            return '<span class="question-image-placeholder">Imagem indisponível aguardando revisão oficial.</span>';
           }
           attrs.push(`src="${sanitizeUrl(value)}" loading="lazy"`);
           continue;
@@ -252,7 +300,7 @@ function AssetImage({
   if (!asset.url || broken) {
     return (
       <div className="rounded-[22px] border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-        Nao foi possivel carregar este recurso visual.
+        Não foi possível carregar este recurso visual.
       </div>
     );
   }
@@ -263,12 +311,12 @@ function AssetImage({
         type="button"
         className="block w-full"
         onClick={() => onOpen(asset)}
-        aria-label={asset.altText ?? "Ampliar imagem da questao"}
+        aria-label={asset.altText ?? "Ampliar imagem da questão"}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={asset.url}
-          alt={asset.altText ?? "Recurso visual da questao"}
+          alt={asset.altText ?? "Recurso visual da questão"}
           loading="lazy"
           className="max-h-[420px] w-full object-contain bg-muted/20"
           onError={() => setBroken(true)}
@@ -349,7 +397,7 @@ export function QuestionContent({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={activeAsset.url}
-              alt={activeAsset.altText ?? "Imagem ampliada da questao"}
+              alt={activeAsset.altText ?? "Imagem ampliada da questão"}
               className="max-h-[82vh] w-full object-contain"
             />
             {activeAsset.caption ? (

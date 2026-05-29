@@ -20,9 +20,9 @@ import { useCreateMockExam, useMockExams } from "@/hooks/use-mock-exams";
 import { formatDate, formatSecondsToMinutes } from "@/lib/utils";
 
 const createSchema = z.object({
-  title: z.string().min(3, "Informe um titulo."),
+  title: z.string().min(3, "Informe um título."),
   durationMinutes: z.coerce.number().min(30, "Use pelo menos 30 minutos."),
-  questionCount: z.coerce.number().min(10, "Use pelo menos 10 questoes."),
+  questionCount: z.coerce.number().min(10, "Use pelo menos 10 questões."),
 });
 
 type CreateMockExamFormValues = z.infer<typeof createSchema>;
@@ -49,7 +49,7 @@ export function MockExamsView() {
       <PageHeader
         eyebrow="Simulados"
         title="Monte provas completas e resolva como se fosse o dia oficial."
-        description="Crie simulados com selecao automatica de questoes, acompanhe o progresso, finalize com confirmacao e consulte o resultado detalhado depois."
+        description="Crie simulados com seleção automática de questões, acompanhe o progresso, finalize com confirmação e consulte o resultado detalhado depois."
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -57,7 +57,7 @@ export function MockExamsView() {
           <CardHeader>
             <CardTitle>Seus simulados</CardTitle>
             <CardDescription>
-              Acompanhe o que esta em andamento, retome a resolucao e compare o resultado final por materia.
+              Acompanhe o que está em andamento, retome a resolução e compare o resultado final por matéria.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -69,7 +69,7 @@ export function MockExamsView() {
 
             {isError ? (
               <ErrorState
-                title="Nao foi possivel carregar os simulados."
+                title="Não foi possível carregar os simulados."
                 description="Tente novamente para sincronizar a lista com o backend."
                 onRetry={() => void refetch()}
               />
@@ -78,7 +78,7 @@ export function MockExamsView() {
             {!isLoading && !isError && data?.length === 0 ? (
               <EmptyState
                 title="Nenhum simulado criado ainda."
-                description="Crie seu primeiro bloco de prova e entre direto na resolucao."
+                description="Crie seu primeiro bloco de prova e entre direto na resolução."
               />
             ) : null}
 
@@ -102,7 +102,7 @@ export function MockExamsView() {
                           </Badge>
                           <Badge variant="outline">
                             <FileSpreadsheet className="mr-1 size-3.5" />
-                            {exam.questionCount} questoes
+                            {exam.questionCount} questões
                           </Badge>
                         </div>
                         <h2 className="text-lg font-semibold">{exam.title}</h2>
@@ -143,7 +143,7 @@ export function MockExamsView() {
           <CardHeader>
             <CardTitle>Criar novo simulado</CardTitle>
             <CardDescription>
-              O backend seleciona automaticamente a quantidade de questoes pedida e abre o fluxo real de resolucao.
+              O backend seleciona automaticamente a quantidade de questões pedida e abre o fluxo real de resolução.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -180,7 +180,7 @@ export function MockExamsView() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="questionCount">Quantidade de questoes</Label>
+                <Label htmlFor="questionCount">Quantidade de questões</Label>
                 <Input id="questionCount" type="number" {...register("questionCount")} />
                 {errors.questionCount ? (
                   <p className="text-sm text-rose-500">
@@ -206,7 +206,7 @@ export function MockExamsView() {
                 <div>
                   <p className="font-semibold">Experiencia de prova</p>
                   <p className="text-sm text-muted-foreground">
-                    Resolucao em sequencia, cronometro, cartao-resposta e resultado por materia.
+                    Resolução em sequência, cronômetro, cartão-resposta e resultado por matéria.
                   </p>
                 </div>
               </div>

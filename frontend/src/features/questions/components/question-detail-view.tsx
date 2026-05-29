@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Circle, Heart, Tags, Timer } from "lucide-react";
+import { CheckCircle2, ChevronRight, Circle, Heart, Tags, Timer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
@@ -131,7 +131,7 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
   if (isError || !question) {
     return (
       <ErrorState
-        title="Nao foi possivel carregar esta questao."
+        title="Não foi possível carregar esta questão."
         description="Tente novamente para buscar os dados atualizados do backend."
         onRetry={() => void refetch()}
       />
@@ -142,6 +142,11 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
     activeAnswer?.correctAlternative ?? question.correctAlternative ?? null;
   const hasAnsweredCurrentQuestion = Boolean(activeAnswer);
   const hasClassifiedTopic = question.topic && question.topic.toLowerCase() !== "a classificar";
+  const classificationTrail = [
+    question.subject,
+    hasClassifiedTopic ? question.topic : null,
+    question.subtopic,
+  ].filter(Boolean);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -156,7 +161,7 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
       <QuestionProgress
         current={currentIndex + 1}
         total={ids.length}
-        label={source === "error-notebook" ? "Revisao guiada" : "Fluxo de questoes"}
+        label={source === "error-notebook" ? "Revisão guiada" : "Fluxo de questões"}
       />
 
       <Card className="overflow-hidden">
@@ -164,23 +169,31 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                <Badge>{question.subject}</Badge>
-                {hasClassifiedTopic ? (
-                  <Badge variant="secondary">{question.topic}</Badge>
+                {classificationTrail.length > 1 ? (
+                  <Badge variant="secondary" className="gap-1">
+                    {classificationTrail.map((item, index) => (
+                      <span key={item} className="inline-flex items-center gap-1">
+                        {index > 0 ? <ChevronRight className="size-3" /> : null}
+                        {item}
+                      </span>
+                    ))}
+                  </Badge>
                 ) : (
+                  <Badge>{question.subject}</Badge>
+                )}
+                {!hasClassifiedTopic ? (
                   <Badge variant="outline">
                     <Tags className="mr-1 size-3.5" />
-                    Classificacao pendente
+                    Classificação pendente
                   </Badge>
-                )}
-                {question.subtopic ? <Badge variant="outline">{question.subtopic}</Badge> : null}
+                ) : null}
                 <Badge variant="outline">
                   <Timer className="mr-1 size-3.5" />
                   Ritmo monitorado
                 </Badge>
                 {question.answered ? (
                   <Badge variant={question.answeredCorrectly ? "success" : "warning"}>
-                    {question.answeredCorrectly ? "Ja acertada" : "Ja revisada"}
+                    {question.answeredCorrectly ? "Já acertada" : "Já revisada"}
                   </Badge>
                 ) : null}
               </div>
@@ -199,7 +212,7 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
               statement={question.statement}
               statementHtml={question.statementHtml}
               assets={question.assets}
-              sourceLabel="Recursos oficiais da questao"
+              sourceLabel="Recursos oficiais da questão"
             />
           </section>
 
@@ -252,7 +265,7 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              Responda e avance para a proxima questao mantendo este mesmo bloco de estudo.
+              Responda e avance para a próxima questão mantendo este mesmo bloco de estudo.
             </p>
             <Button
               disabled={!selectedAlternative || hasAnsweredCurrentQuestion || isPending}
@@ -288,26 +301,31 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
         </CardContent>
       </Card>
 
-      <div className="flex flex-col gap-3 rounded-[28px] border border-border/70 bg-background/80 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
-          {nextHref
-            ? "Quando terminar esta questao, voce pode seguir para a proxima do bloco."
-            : "Voce chegou ao final deste bloco de questoes."}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link href={returnTo}>
-            <Button variant="outline">Voltar para lista</Button>
-          </Link>
-          {previousHref ? (
-            <Link href={previousHref}>
-              <Button variant="outline">Questao anterior</Button>
+      <div className="rounded-[30px] border border-border/70 bg-background/80 p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Navegação do bloco</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {nextHref
+                ? "Quando terminar esta questão, você pode seguir para a próxima sem perder os filtros."
+                : "Você chegou ao final deste bloco de questões."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Link href={returnTo}>
+              <Button variant="outline">Voltar para lista</Button>
             </Link>
-          ) : null}
-          {nextHref ? (
-            <Link href={nextHref}>
-              <Button>Proxima questao</Button>
-            </Link>
-          ) : null}
+            {previousHref ? (
+              <Link href={previousHref}>
+                <Button variant="outline">Questão anterior</Button>
+              </Link>
+            ) : null}
+            {nextHref ? (
+              <Link href={nextHref}>
+                <Button>Próxima questão</Button>
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

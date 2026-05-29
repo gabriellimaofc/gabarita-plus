@@ -19,7 +19,7 @@ export function ExamAnswerCard({
           Cartao-resposta
         </p>
         <p className="text-sm text-muted-foreground">
-          Navegue rapidamente entre as questoes do simulado.
+          Navegue rapidamente entre as questões do simulado.
         </p>
       </div>
 

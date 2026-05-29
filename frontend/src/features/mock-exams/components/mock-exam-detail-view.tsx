@@ -95,8 +95,8 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
         title={exam.title}
         description={
           exam.finished
-            ? "Resultado consolidado com nota final, desempenho por materia e revisao detalhada das questoes."
-            : "Resolva uma questao por vez, com cronometro, cartao-resposta e salvamento automatico."
+            ? "Resultado consolidado com nota final, desempenho por matéria e revisão detalhada das questões."
+            : "Resolva uma questão por vez, com cronômetro, cartão-resposta e salvamento automatico."
         }
       />
     );
@@ -109,7 +109,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
   if (isExamError || !exam) {
     return (
       <ErrorState
-        title="Nao foi possivel carregar este simulado."
+        title="Não foi possível carregar este simulado."
         description="Tente novamente para sincronizar o fluxo completo com o backend."
         onRetry={() => void refetchExam()}
       />
@@ -124,8 +124,8 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
     if (isResultError || !result) {
       return (
         <ErrorState
-          title="Nao foi possivel carregar o resultado deste simulado."
-          description="Tente novamente para recuperar a correcao e o desempenho por materia."
+          title="Não foi possível carregar o resultado deste simulado."
+          description="Tente novamente para recuperar a correção e o desempenho por matéria."
           onRetry={() => void refetchResult()}
         />
       );
@@ -171,7 +171,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Desempenho por materia</CardTitle>
+            <CardTitle>Desempenho por matéria</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {result.performanceBySubject.map((subject) => (
@@ -184,7 +184,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
                   <Badge variant="outline">{subject.accuracy.toFixed(1)}%</Badge>
                 </div>
                 <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                  <p>{subject.totalQuestions} questoes</p>
+                  <p>{subject.totalQuestions} questões</p>
                   <p>{subject.correctAnswers} acerto(s)</p>
                   <p>{subject.incorrectAnswers} erro(s)</p>
                 </div>
@@ -194,7 +194,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
         </Card>
 
         <div className="space-y-4">
-          <h2 className="text-2xl font-semibold">Revisao detalhada</h2>
+          <h2 className="text-2xl font-semibold">Revisão detalhada</h2>
 
           {result.questions.map((question) => (
             <Card key={question.questionId}>
@@ -269,7 +269,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
   if (isQuestionsError) {
     return (
       <ErrorState
-        title="Nao foi possivel carregar as questoes deste simulado."
+        title="Não foi possível carregar as questões deste simulado."
         description="Tente novamente para retomar a prova com seguranca."
         onRetry={() => void refetchQuestions()}
       />
@@ -279,7 +279,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
   if (!questions?.length || !currentQuestion) {
     return (
       <EmptyState
-        title="Nenhuma questao encontrada neste simulado."
+        title="Nenhuma questão encontrada neste simulado."
         description="Crie um novo simulado ou volte para a lista para verificar a configuracao."
         actionLabel="Voltar para simulados"
         onAction={() => router.push("/simulados")}
@@ -350,7 +350,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
                 statement={currentQuestion.statement}
                 statementHtml={currentQuestion.statementHtml}
                 assets={currentQuestion.assets}
-                sourceLabel="Recursos oficiais da questao"
+                sourceLabel="Recursos oficiais da questão"
               />
 
               <div className="space-y-3">
@@ -409,7 +409,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
               </div>
 
               <div className="rounded-[24px] border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
-                As respostas sao salvas automaticamente ao selecionar uma alternativa. Voce pode voltar e trocar a resposta antes de finalizar o simulado.
+                As respostas são salvas automaticamente ao selecionar uma alternativa. Você pode voltar e trocar a resposta antes de finalizar o simulado.
               </div>
             </CardContent>
           </Card>
@@ -442,7 +442,7 @@ export function MockExamDetailView({ mockExamId }: { mockExamId: number }) {
               <div className="grid gap-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-3">
                   <Target className="size-4 text-primary" />
-                  <span>{exam.answeredCount} questoes respondidas</span>
+                  <span>{exam.answeredCount} questões respondidas</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Clock3 className="size-4 text-primary" />

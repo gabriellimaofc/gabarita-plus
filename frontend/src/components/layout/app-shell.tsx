@@ -25,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
   const navigationItems = useMemo(() => {
     if (user?.roles.includes("ROLE_ADMIN")) {
-      return [...navItems, { href: "/admin/import/questions/review", label: "Revisao admin" }];
+      return [...navItems, { href: "/admin/import/questions/review", label: "Revisão admin" }];
     }
     return navItems;
   }, [user?.roles]);
