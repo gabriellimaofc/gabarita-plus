@@ -126,6 +126,10 @@ export const adminImportService = {
     return unwrapResponse(response);
   },
 
+  async deleteOfficialSource(id: number) {
+    await apiClient.delete<ApiResponse<void>>(`/admin/import/official-sources/${id}`);
+  },
+
   async recoverAssets(id: number) {
     const response = await apiClient.post<ApiResponse<OfficialValidationReport>>(
       `/admin/import/questions/${id}/recover-assets`,

@@ -287,7 +287,7 @@ class AdminEnemDevImportIntegrationTests {
         Question saved = buildReviewQuestionWithAlternatives();
         saved.setStatement("Leia o texto e responda a pergunta.");
         saved.setSourceDay(1);
-        saved.setSourceBookColor("AZUL");
+        saved.setSourceBookColor("UNKNOWN");
         saved = questionRepository.save(saved);
 
         mockMvc.perform(post("/admin/import/official-sources")
@@ -304,12 +304,35 @@ class AdminEnemDevImportIntegrationTests {
                         ))))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(post("/admin/import/official-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "exam", "ENEM",
+                                "year", 2023,
+                                "day", 1,
+                                "bookColor", "AZUL",
+                                "pdfUrl", "https://www.gov.br/inep/prova-v2.pdf",
+                                "answerKeyUrl", "https://www.gov.br/inep/gabarito.pdf",
+                                "sourceUrl", "https://www.gov.br/inep/provas-e-gabaritos",
+                                "answerKeyMapJson", "{\"1\":\"A\"}"
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pdfUrl").value("https://www.gov.br/inep/prova-v2.pdf"));
+
+        mockMvc.perform(get("/admin/import/official-sources"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1));
+
         mockMvc.perform(post("/admin/import/questions/{id}/validate-against-official-source", saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.processed").value(1))
                 .andExpect(jsonPath("$.data.validated").value(1))
                 .andExpect(jsonPath("$.data.items[0].validatedAgainstOfficialSource").value(true))
-                .andExpect(jsonPath("$.data.items[0].importStatus").value("AUTO_VALIDATED"));
+                .andExpect(jsonPath("$.data.items[0].importStatus").value("AUTO_VALIDATED"))
+                .andExpect(jsonPath("$.data.items[0].warnings", hasItem("BOOK_COLOR_INFERRED_FROM_OFFICIAL_SOURCE")));
+
+        Question reloaded = questionRepository.findById(saved.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("AZUL", reloaded.getSourceBookColor());
     }
 
     @Test

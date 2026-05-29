@@ -55,6 +55,20 @@ export function useCreateOfficialSource() {
   });
 }
 
+export function useDeleteOfficialSource() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => adminImportService.deleteOfficialSource(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-official-sources"] });
+      toast.success("Fonte oficial removida.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel remover a fonte oficial.")),
+  });
+}
+
 export function useUpdateReviewStatus() {
   const queryClient = useQueryClient();
 
@@ -199,7 +213,7 @@ export function useValidateAgainstOfficialSource() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
-      toast.success(`Validacao INEP processada: ${result.validated} validadas.`);
+      toast.success(`Validacao INEP: ${result.validated} validadas, ${result.failed} falhas.`);
     },
     onError: (error) =>
       toast.error(getErrorMessage(error, "Nao foi possivel validar com INEP.")),
@@ -215,7 +229,7 @@ export function useValidateAgainstOfficialSourceBatch() {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
-      toast.success(`Validacao INEP em lote: ${result.processed} questoes.`);
+      toast.success(`Validacao INEP em lote: ${result.validated} validadas, ${result.failed} falhas.`);
     },
     onError: (error) =>
       toast.error(getErrorMessage(error, "Nao foi possivel validar o lote com INEP.")),

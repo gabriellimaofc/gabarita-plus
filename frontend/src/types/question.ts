@@ -211,16 +211,29 @@ export interface OfficialValidationItem {
   questionId: number;
   title: string;
   sourceQuestionNumber: number | null;
+  previousValidatedAgainstOfficialSource: boolean | null;
+  newValidatedAgainstOfficialSource: boolean | null;
+  previousScore: number | null;
+  newScore: number | null;
   importStatus: QuestionImportStatus;
   autoValidationStatus: AutoValidationStatus;
   validatedAgainstOfficialSource: boolean;
   assetRecovered: boolean;
+  updated: boolean;
   warnings: string[];
+  errors: string[];
 }
 
 export interface OfficialValidationReport {
+  totalProcessed: number;
   processed: number;
   validated: number;
+  skipped: number;
+  failed: number;
+  ambiguousOfficialSource: number;
+  answerKeyMissing: number;
+  answerKeyMismatch: number;
+  updatedQuestions: number;
   needsReview: number;
   invalid: number;
   brokenImages: number;

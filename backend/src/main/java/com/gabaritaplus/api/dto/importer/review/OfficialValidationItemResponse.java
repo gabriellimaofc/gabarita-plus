@@ -9,10 +9,16 @@ public record OfficialValidationItemResponse(
         Long questionId,
         String title,
         Integer sourceQuestionNumber,
+        Boolean previousValidatedAgainstOfficialSource,
+        Boolean newValidatedAgainstOfficialSource,
+        Integer previousScore,
+        Integer newScore,
         QuestionImportStatus importStatus,
         AutoValidationStatus autoValidationStatus,
         boolean validatedAgainstOfficialSource,
         boolean assetRecovered,
-        List<String> warnings
+        boolean updated,
+        List<String> warnings,
+        List<String> errors
 ) {
 }

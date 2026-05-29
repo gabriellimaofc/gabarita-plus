@@ -17,6 +17,7 @@ import {
   useAutoValidateBatch,
   useAutoValidateQuestion,
   useCreateOfficialSource,
+  useDeleteOfficialSource,
   useOfficialSources,
   usePublishReviewQuestion,
   useRecoverAssets,
@@ -34,6 +35,7 @@ import { useAuthStore } from "@/store/auth-store";
 import type {
   AutoValidationStatus,
   OfficialExamSourcePayload,
+  OfficialValidationReport,
   QuestionImportStatus,
   ReviewOfficialValidationPayload,
   ReviewQuestionDetail,
@@ -337,6 +339,7 @@ export function ImportReviewAdminView() {
     localPdfPath: "",
     answerKeyMapJson: "",
   });
+  const [officialValidationReport, setOfficialValidationReport] = useState<OfficialValidationReport | null>(null);
 
   const reviewQuery = useReviewQuestions(filters);
   const countersQuery = useReviewCounters();
@@ -349,6 +352,7 @@ export function ImportReviewAdminView() {
   const autoValidateBatch = useAutoValidateBatch();
   const autoPublishSafe = useAutoPublishSafe();
   const createOfficialSource = useCreateOfficialSource();
+  const deleteOfficialSource = useDeleteOfficialSource();
   const recoverAssets = useRecoverAssets();
   const recoverAssetsBatch = useRecoverAssetsBatch();
   const validateWithInep = useValidateAgainstOfficialSource();
@@ -450,6 +454,26 @@ export function ImportReviewAdminView() {
       localPdfPath: officialSourceForm.localPdfPath?.trim() || null,
       answerKeyMapJson: officialSourceForm.answerKeyMapJson?.trim() || null,
     });
+  }
+
+  async function handleValidateWithInep(questionId: number) {
+    const result = await validateWithInep.mutateAsync(questionId);
+    setOfficialValidationReport(result);
+  }
+
+  async function handleValidateWithInepBatch() {
+    const result = await validateWithInepBatch.mutateAsync();
+    setOfficialValidationReport(result);
+  }
+
+  async function handleRecoverAssets(questionId: number) {
+    const result = await recoverAssets.mutateAsync(questionId);
+    setOfficialValidationReport(result);
+  }
+
+  async function handleRecoverAssetsBatch() {
+    const result = await recoverAssetsBatch.mutateAsync();
+    setOfficialValidationReport(result);
   }
 
   return (
@@ -585,6 +609,19 @@ export function ImportReviewAdminView() {
                   </div>
                   <p className="mt-3 break-all text-muted-foreground">PDF: {source.pdfUrl}</p>
                   <p className="mt-1 break-all text-muted-foreground">Gabarito: {source.answerKeyUrl ?? "-"}</p>
+                  <Button
+                    className="mt-3"
+                    variant="outline"
+                    onClick={() => {
+                      if (!window.confirm("Remover esta fonte oficial?")) {
+                        return;
+                      }
+                      deleteOfficialSource.mutate(source.id);
+                    }}
+                    disabled={deleteOfficialSource.isPending}
+                  >
+                    Remover
+                  </Button>
                 </div>
               ))
             ) : (
@@ -639,6 +676,59 @@ export function ImportReviewAdminView() {
           </div>
         </CardContent>
       </Card>
+
+      {officialValidationReport ? (
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border/70">
+            <CardTitle>Relatorio da validacao INEP</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+              {[
+                ["Processadas", officialValidationReport.totalProcessed],
+                ["Validadas", officialValidationReport.validated],
+                ["Atualizadas", officialValidationReport.updatedQuestions],
+                ["Falhas", officialValidationReport.failed],
+                ["Ambiguas", officialValidationReport.ambiguousOfficialSource],
+                ["Gabarito ausente", officialValidationReport.answerKeyMissing],
+                ["Gabarito divergente", officialValidationReport.answerKeyMismatch],
+                ["Pendentes INEP", officialValidationReport.pendingInep],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-[18px] border border-border/70 bg-background/70 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+                  <p className="mt-2 text-xl font-bold">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="max-h-[320px] space-y-2 overflow-auto rounded-[20px] border border-border/70 p-3">
+              {officialValidationReport.items.map((item) => (
+                <div key={`${item.questionId}-${item.sourceQuestionNumber}`} className="rounded-[16px] bg-muted/40 p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={item.updated ? "success" : "warning"}>
+                      {item.updated ? "Atualizada" : "Sem mudanca"}
+                    </Badge>
+                    <Badge variant={item.newValidatedAgainstOfficialSource ? "success" : "warning"}>
+                      {item.newValidatedAgainstOfficialSource ? "INEP validado" : "Pendente INEP"}
+                    </Badge>
+                    <span className="font-semibold">#{item.sourceQuestionNumber ?? "-"} {item.title}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Score: {item.previousScore ?? "-"} {"->"} {item.newScore ?? "-"} | Validacao:{" "}
+                    {String(item.previousValidatedAgainstOfficialSource)} {"->"} {String(item.newValidatedAgainstOfficialSource)}
+                  </p>
+                  {item.warnings.length ? (
+                    <p className="mt-2 break-words text-xs text-amber-600">Warnings: {item.warnings.join(" | ")}</p>
+                  ) : null}
+                  {item.errors.length ? (
+                    <p className="mt-2 break-words text-xs text-rose-600">Errors: {item.errors.join(" | ")}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card className="overflow-hidden xl:sticky xl:top-24">
@@ -827,14 +917,14 @@ export function ImportReviewAdminView() {
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => validateWithInep.mutate(selectedQuestion.id)}
+                          onClick={() => void handleValidateWithInep(selectedQuestion.id)}
                           disabled={validateWithInep.isPending}
                         >
                           Validar com INEP
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => recoverAssets.mutate(selectedQuestion.id)}
+                          onClick={() => void handleRecoverAssets(selectedQuestion.id)}
                           disabled={recoverAssets.isPending}
                         >
                           Recuperar assets
@@ -893,14 +983,14 @@ export function ImportReviewAdminView() {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => validateWithInepBatch.mutate()}
+                      onClick={() => void handleValidateWithInepBatch()}
                       disabled={validateWithInepBatch.isPending}
                     >
                       Validar lote com INEP
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => recoverAssetsBatch.mutate()}
+                      onClick={() => void handleRecoverAssetsBatch()}
                       disabled={recoverAssetsBatch.isPending}
                     >
                       Recuperar assets do lote
