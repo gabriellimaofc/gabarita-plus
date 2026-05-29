@@ -8,6 +8,11 @@ public record OfficialPdfAssetRecoveryDiagnostics(
         boolean officialSourceFound,
         boolean pdfDownloaded,
         Long pdfSizeBytes,
+        Integer pdfDownloadHttpStatus,
+        String pdfDownloadContentType,
+        Long pdfDownloadContentLength,
+        String pdfDownloadErrorMessage,
+        String pdfUrlUsed,
         Integer pdfPageCount,
         List<Integer> candidatePages,
         Integer selectedPage,
@@ -29,6 +34,11 @@ public record OfficialPdfAssetRecoveryDiagnostics(
         private boolean officialSourceFound;
         private boolean pdfDownloaded;
         private Long pdfSizeBytes;
+        private Integer pdfDownloadHttpStatus;
+        private String pdfDownloadContentType;
+        private Long pdfDownloadContentLength;
+        private String pdfDownloadErrorMessage;
+        private String pdfUrlUsed;
         private Integer pdfPageCount;
         private List<Integer> candidatePages = new ArrayList<>();
         private Integer selectedPage;
@@ -58,6 +68,31 @@ public record OfficialPdfAssetRecoveryDiagnostics(
 
         public Builder pdfSizeBytes(Long value) {
             this.pdfSizeBytes = value;
+            return this;
+        }
+
+        public Builder pdfDownloadHttpStatus(Integer value) {
+            this.pdfDownloadHttpStatus = value;
+            return this;
+        }
+
+        public Builder pdfDownloadContentType(String value) {
+            this.pdfDownloadContentType = value;
+            return this;
+        }
+
+        public Builder pdfDownloadContentLength(Long value) {
+            this.pdfDownloadContentLength = value;
+            return this;
+        }
+
+        public Builder pdfDownloadErrorMessage(String value) {
+            this.pdfDownloadErrorMessage = value;
+            return this;
+        }
+
+        public Builder pdfUrlUsed(String value) {
+            this.pdfUrlUsed = value;
             return this;
         }
 
@@ -122,6 +157,11 @@ public record OfficialPdfAssetRecoveryDiagnostics(
                     officialSourceFound,
                     pdfDownloaded,
                     pdfSizeBytes,
+                    pdfDownloadHttpStatus,
+                    pdfDownloadContentType,
+                    pdfDownloadContentLength,
+                    pdfDownloadErrorMessage,
+                    pdfUrlUsed,
                     pdfPageCount,
                     List.copyOf(candidatePages),
                     selectedPage,

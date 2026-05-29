@@ -13,15 +13,19 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.text.Normalizer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
@@ -36,6 +40,7 @@ public class OfficialPdfAssetRecoveryService {
 
     private static final String BROKEN_IMAGE_URL = "https://enem.dev/broken-image.svg";
     private static final List<String> ENEM_2023_Q1_NEEDLES = List.of(
+            "Quest\u00F5es de 01 a 05 (op\u00E7\u00E3o espanhol)",
             "\u00BFQU\u00C9 ME PASA?",
             "PORQU\u00C9 NO CONSIGO APRENDER",
             "Como estrellas en la tierra",
@@ -44,7 +49,6 @@ public class OfficialPdfAssetRecoveryService {
     );
 
     private final QuestionAssetStorageService storageService;
-    private final RestClient.Builder restClientBuilder;
 
     @Value("${app.import.official-pdf-cache-dir:storage/official-pdfs}")
     private String pdfCacheDir;
@@ -248,6 +252,7 @@ public class OfficialPdfAssetRecoveryService {
 
     private Path resolveOfficialPdf(OfficialExamSource source, OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics) {
         try {
+            diagnostics.pdfUrlUsed(source.getPdfUrl());
             if (source.getLocalPdfPath() != null && !source.getLocalPdfPath().isBlank()) {
                 Path localPath = Path.of(source.getLocalPdfPath());
                 if (Files.exists(localPath) && Files.size(localPath) > 0) {
@@ -267,14 +272,7 @@ public class OfficialPdfAssetRecoveryService {
                 return cachedPdf;
             }
 
-            byte[] pdf = restClientBuilder.build()
-                    .get()
-                    .uri(source.getPdfUrl())
-                    .retrieve()
-                    .body(byte[].class);
-            if (pdf == null || pdf.length == 0) {
-                throw new PdfRecoveryException("PDF_EMPTY_OR_INVALID");
-            }
+            byte[] pdf = downloadOfficialPdf(source.getPdfUrl(), diagnostics);
             Files.write(cachedPdf, pdf);
             diagnostics.pdfDownloaded(true).pdfSizeBytes((long) pdf.length);
             log.info("Official PDF downloaded pdfUrl={} bytes={}", source.getPdfUrl(), pdf.length);
@@ -284,6 +282,131 @@ public class OfficialPdfAssetRecoveryService {
         } catch (Exception exception) {
             throw new PdfRecoveryException("PDF_DOWNLOAD_FAILED", exception);
         }
+    }
+
+    private byte[] downloadOfficialPdf(String pdfUrl, OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics) {
+        diagnostics.pdfUrlUsed(pdfUrl);
+        List<DownloadAttempt> attempts = List.of(
+                new DownloadAttempt("DEFAULT_BROWSER_HEADERS", true),
+                new DownloadAttempt("IDENTITY_ENCODING", false)
+        );
+
+        PdfRecoveryException lastFailure = null;
+        for (DownloadAttempt attempt : attempts) {
+            try {
+                HttpClient client = HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofSeconds(20))
+                        .followRedirects(HttpClient.Redirect.NORMAL)
+                        .build();
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                        .uri(URI.create(pdfUrl))
+                        .timeout(Duration.ofSeconds(90))
+                        .GET()
+                        .header("User-Agent", "Mozilla/5.0 (compatible; GabaritaPlusBot/1.0; +https://gabarita-plus.vercel.app)")
+                        .header("Accept", "application/pdf,application/octet-stream;q=0.9,*/*;q=0.1")
+                        .header("Cache-Control", "no-cache")
+                        .header("Pragma", "no-cache");
+                if (!attempt.allowCompression()) {
+                    requestBuilder.header("Accept-Encoding", "identity");
+                }
+
+                HttpResponse<byte[]> response = client.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray());
+                byte[] body = response.body();
+                String contentType = response.headers().firstValue("content-type").orElse(null);
+                long contentLength = response.headers()
+                        .firstValue("content-length")
+                        .flatMap(this::parseLong)
+                        .orElse(body == null ? 0L : (long) body.length);
+
+                diagnostics.pdfDownloadHttpStatus(response.statusCode())
+                        .pdfDownloadContentType(contentType)
+                        .pdfDownloadContentLength(contentLength)
+                        .pdfDownloadErrorMessage(null);
+
+                log.info(
+                        "Official PDF download attempt method={} status={} contentType={} contentLength={} url={}",
+                        attempt.name(),
+                        response.statusCode(),
+                        contentType,
+                        contentLength,
+                        pdfUrl
+                );
+
+                validatePdfResponse(response.statusCode(), contentType, body);
+                return body;
+            } catch (PdfRecoveryException exception) {
+                lastFailure = exception;
+                diagnostics.pdfDownloadErrorMessage(exception.getMessage());
+                log.warn("Official PDF download attempt failed method={} reason={}", attempt.name(), exception.getMessage());
+            } catch (Exception exception) {
+                lastFailure = new PdfRecoveryException("PDF_DOWNLOAD_FAILED", sanitizeDownloadError(exception));
+                diagnostics.pdfDownloadErrorMessage(lastFailure.getMessage());
+                log.warn("Official PDF download attempt failed method={} reason={}", attempt.name(), sanitizeDownloadError(exception));
+            }
+        }
+
+        if (lastFailure != null) {
+            throw lastFailure;
+        }
+        throw new PdfRecoveryException("PDF_DOWNLOAD_FAILED", "No download attempts were executed.");
+    }
+
+    private void validatePdfResponse(int statusCode, String contentType, byte[] body) {
+        if (statusCode < 200 || statusCode >= 300) {
+            throw new PdfRecoveryException("PDF_DOWNLOAD_FAILED", "HTTP status " + statusCode);
+        }
+        if (body == null || body.length == 0) {
+            throw new PdfRecoveryException("PDF_EMPTY_OR_INVALID", "PDF download returned empty content.");
+        }
+        if (body.length < 1024) {
+            throw new PdfRecoveryException("PDF_EMPTY_OR_INVALID", "PDF download returned too few bytes: " + body.length);
+        }
+        if (contentType != null && !contentType.isBlank()) {
+            String normalizedContentType = contentType.toLowerCase(Locale.ROOT);
+            boolean acceptedType = normalizedContentType.contains("application/pdf")
+                    || normalizedContentType.contains("application/octet-stream")
+                    || normalizedContentType.contains("binary/octet-stream");
+            if (!acceptedType) {
+                throw new PdfRecoveryException("PDF_EMPTY_OR_INVALID", "Unexpected PDF content-type: " + contentType);
+            }
+        }
+        if (!startsWithPdfHeader(body)) {
+            throw new PdfRecoveryException("PDF_EMPTY_OR_INVALID", "Downloaded bytes do not start with %PDF.");
+        }
+    }
+
+    private boolean startsWithPdfHeader(byte[] body) {
+        if (body.length < 4) {
+            return false;
+        }
+        int offset = 0;
+        if (body.length >= 7
+                && (body[0] & 0xFF) == 0xEF
+                && (body[1] & 0xFF) == 0xBB
+                && (body[2] & 0xFF) == 0xBF) {
+            offset = 3;
+        }
+        return body.length >= offset + 4
+                && body[offset] == '%'
+                && body[offset + 1] == 'P'
+                && body[offset + 2] == 'D'
+                && body[offset + 3] == 'F';
+    }
+
+    private java.util.Optional<Long> parseLong(String value) {
+        try {
+            return java.util.Optional.of(Long.parseLong(value));
+        } catch (NumberFormatException ignored) {
+            return java.util.Optional.empty();
+        }
+    }
+
+    private String sanitizeDownloadError(Exception exception) {
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            return exception.getClass().getSimpleName();
+        }
+        return message.length() > 500 ? message.substring(0, 500) : message;
     }
 
     private PageSelection findQuestionPage(PDDocument document, Question question) throws Exception {
@@ -349,6 +472,15 @@ public class OfficialPdfAssetRecoveryService {
             return List.of(question.getSourcePage());
         }
         if (question.getSourceQuestionNumber() != null && question.getSourceQuestionNumber() == 1) {
+            if (question.getSourceYear() != null && question.getSourceYear() == 2023
+                    && question.getSourceDay() != null && question.getSourceDay() == 1
+                    && question.getSourceBookColor() != null && question.getSourceBookColor().equalsIgnoreCase("AZUL")
+                    && pageCount >= 4) {
+                return List.of(4, 3, 2, 5, 6).stream()
+                        .filter(page -> page > 0 && page <= pageCount)
+                        .distinct()
+                        .toList();
+            }
             List<Integer> pages = new ArrayList<>();
             for (int page = 2; page <= Math.min(pageCount, 6); page++) {
                 pages.add(page);
@@ -451,6 +583,9 @@ public class OfficialPdfAssetRecoveryService {
     private record Crop(int x, int y, int width, int height) {
     }
 
+    private record DownloadAttempt(String name, boolean allowCompression) {
+    }
+
     private static class PdfRecoveryException extends RuntimeException {
         private final String reason;
 
@@ -461,6 +596,11 @@ public class OfficialPdfAssetRecoveryService {
 
         PdfRecoveryException(String reason, Throwable cause) {
             super(reason, cause);
+            this.reason = reason;
+        }
+
+        PdfRecoveryException(String reason, String message) {
+            super(message);
             this.reason = reason;
         }
 

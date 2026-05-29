@@ -727,6 +727,9 @@ export function ImportReviewAdminView() {
                     <div className="mt-3 grid gap-2 rounded-[14px] border border-border/70 bg-background/70 p-3 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
                       <span>Fonte oficial: {item.officialSourceFound ? "encontrada" : "não encontrada"}</span>
                       <span>PDF baixado: {item.pdfDownloaded ? "sim" : "não"}</span>
+                      <span>Status HTTP: {item.pdfDownloadHttpStatus ?? "-"}</span>
+                      <span>Content-Type: {item.pdfDownloadContentType ?? "-"}</span>
+                      <span>Content-Length: {item.pdfDownloadContentLength ?? "-"}</span>
                       <span>Páginas do PDF: {item.pdfPageCount ?? "-"}</span>
                       <span>Páginas candidatas: {item.candidatePages?.length ? item.candidatePages.join(", ") : "-"}</span>
                       <span>Página escolhida: {item.selectedPage ?? "-"}</span>
@@ -737,6 +740,14 @@ export function ImportReviewAdminView() {
                       <span className="md:col-span-2 xl:col-span-3">
                         Motivo técnico: {item.recoveryFailureReason ?? "sem falha técnica registrada"}
                       </span>
+                      {item.pdfDownloadErrorMessage ? (
+                        <span className="break-words text-rose-600 md:col-span-2 xl:col-span-3">
+                          Erro no download: {item.pdfDownloadErrorMessage}
+                        </span>
+                      ) : null}
+                      {item.pdfUrlUsed ? (
+                        <span className="break-all md:col-span-2 xl:col-span-3">PDF usado: {item.pdfUrlUsed}</span>
+                      ) : null}
                       {item.assetUrl ? (
                         <a
                           className="break-all font-medium text-primary underline-offset-4 hover:underline md:col-span-2 xl:col-span-3"

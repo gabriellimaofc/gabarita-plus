@@ -228,6 +228,11 @@ export interface OfficialValidationItem {
   officialSourceFound: boolean;
   pdfDownloaded: boolean;
   pdfSizeBytes: number | null;
+  pdfDownloadHttpStatus: number | null;
+  pdfDownloadContentType: string | null;
+  pdfDownloadContentLength: number | null;
+  pdfDownloadErrorMessage: string | null;
+  pdfUrlUsed: string | null;
   pdfPageCount: number | null;
   candidatePages: number[];
   selectedPage: number | null;
