@@ -192,6 +192,7 @@ export interface OfficialExamSource {
   sourceUrl: string;
   localPdfPath: string | null;
   cachedPdfUrl: string | null;
+  cachedAnswerKeyUrl: string | null;
   answerKeyMapJson: string | null;
   createdAt: string;
 }
@@ -206,6 +207,7 @@ export interface OfficialExamSourcePayload {
   sourceUrl: string;
   localPdfPath?: string | null;
   cachedPdfUrl?: string | null;
+  cachedAnswerKeyUrl?: string | null;
   answerKeyMapJson?: string | null;
 }
 

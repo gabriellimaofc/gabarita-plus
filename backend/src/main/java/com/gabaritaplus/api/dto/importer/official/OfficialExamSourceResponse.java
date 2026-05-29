@@ -13,6 +13,7 @@ public record OfficialExamSourceResponse(
         String sourceUrl,
         String localPdfPath,
         String cachedPdfUrl,
+        String cachedAnswerKeyUrl,
         String answerKeyMapJson,
         OffsetDateTime createdAt
 ) {

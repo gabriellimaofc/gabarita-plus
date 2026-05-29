@@ -338,6 +338,7 @@ export function ImportReviewAdminView() {
     sourceUrl: "",
     localPdfPath: "",
     cachedPdfUrl: "",
+    cachedAnswerKeyUrl: "",
     answerKeyMapJson: "",
   });
   const [officialValidationReport, setOfficialValidationReport] = useState<OfficialValidationReport | null>(null);
@@ -454,6 +455,7 @@ export function ImportReviewAdminView() {
       answerKeyUrl: officialSourceForm.answerKeyUrl?.trim() || null,
       localPdfPath: officialSourceForm.localPdfPath?.trim() || null,
       cachedPdfUrl: officialSourceForm.cachedPdfUrl?.trim() || null,
+      cachedAnswerKeyUrl: officialSourceForm.cachedAnswerKeyUrl?.trim() || null,
       answerKeyMapJson: officialSourceForm.answerKeyMapJson?.trim() || null,
     });
   }
@@ -612,6 +614,19 @@ export function ImportReviewAdminView() {
                   <p className="mt-3 break-all text-muted-foreground">PDF: {source.pdfUrl}</p>
                   <p className="mt-1 break-all text-muted-foreground">PDF cacheado: {source.cachedPdfUrl ?? source.localPdfPath ?? "-"}</p>
                   <p className="mt-1 break-all text-muted-foreground">Gabarito: {source.answerKeyUrl ?? "-"}</p>
+                  <p className="mt-1 break-all text-muted-foreground">Gabarito cacheado: {source.cachedAnswerKeyUrl ?? "-"}</p>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Recuperação de assets: {source.cachedPdfUrl ? "usa cache se o INEP falhar" : "usa URL oficial"}
+                  </p>
+                  {source.cachedPdfUrl ? (
+                    <Button
+                      className="mt-3 mr-2"
+                      variant="outline"
+                      onClick={() => void navigator.clipboard.writeText(source.cachedPdfUrl ?? "")}
+                    >
+                      Copiar PDF cacheado
+                    </Button>
+                  ) : null}
                   <Button
                     className="mt-3"
                     variant="outline"
@@ -675,6 +690,14 @@ export function ImportReviewAdminView() {
               <p className="text-xs text-muted-foreground">
                 Use apenas cópia do PDF oficial do INEP em storage controlado.
               </p>
+            </div>
+            <div className="space-y-2">
+              <Label>cachedAnswerKeyUrl opcional</Label>
+              <Input
+                value={officialSourceForm.cachedAnswerKeyUrl ?? ""}
+                onChange={(event) => setOfficialSourceForm((current) => ({ ...current, cachedAnswerKeyUrl: event.target.value }))}
+                placeholder="https://.../official-exam-pdfs/enem/2023/dia-1/azul-gabarito.pdf"
+              />
             </div>
             <div className="space-y-2">
               <Label>Mapa de gabarito JSON opcional</Label>

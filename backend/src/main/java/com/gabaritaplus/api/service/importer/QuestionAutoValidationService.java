@@ -66,6 +66,7 @@ public class QuestionAutoValidationService {
         source.setSourceUrl(request.sourceUrl());
         source.setLocalPdfPath(request.localPdfPath());
         source.setCachedPdfUrl(request.cachedPdfUrl());
+        source.setCachedAnswerKeyUrl(request.cachedAnswerKeyUrl());
         source.setAnswerKeyMapJson(request.answerKeyMapJson());
         return toOfficialSourceResponse(officialExamSourceRepository.save(source));
     }
@@ -751,6 +752,7 @@ public class QuestionAutoValidationService {
                 source.getSourceUrl(),
                 source.getLocalPdfPath(),
                 source.getCachedPdfUrl(),
+                source.getCachedAnswerKeyUrl(),
                 source.getAnswerKeyMapJson(),
                 source.getCreatedAt()
         );

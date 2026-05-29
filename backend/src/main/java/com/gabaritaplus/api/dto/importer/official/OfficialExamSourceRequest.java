@@ -13,6 +13,7 @@ public record OfficialExamSourceRequest(
         @NotBlank String sourceUrl,
         String localPdfPath,
         String cachedPdfUrl,
+        String cachedAnswerKeyUrl,
         String answerKeyMapJson
 ) {
 }

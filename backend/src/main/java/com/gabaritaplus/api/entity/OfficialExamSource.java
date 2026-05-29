@@ -41,6 +41,9 @@ public class OfficialExamSource extends BaseEntity {
     @Column(name = "cached_pdf_url", length = 1000)
     private String cachedPdfUrl;
 
+    @Column(name = "cached_answer_key_url", length = 1000)
+    private String cachedAnswerKeyUrl;
+
     @Column(name = "answer_key_map_json", columnDefinition = "TEXT")
     private String answerKeyMapJson;
 }
