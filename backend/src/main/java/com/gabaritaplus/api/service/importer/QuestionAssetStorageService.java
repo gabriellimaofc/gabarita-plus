@@ -4,8 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -34,16 +37,42 @@ public class QuestionAssetStorageService {
         if (isSupabaseConfigured()) {
             String baseUrl = supabaseUrl.replaceAll("/+$", "");
             String encodedPath = storagePath.replace("\\", "/");
-            restClientBuilder.build()
-                    .post()
-                    .uri(URI.create(baseUrl + "/storage/v1/object/" + supabaseBucketQuestions + "/" + encodedPath))
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + supabaseServiceRoleKey)
-                    .header("apikey", supabaseServiceRoleKey)
-                    .header("x-upsert", "true")
-                    .contentType(MediaType.IMAGE_PNG)
-                    .body(content)
-                    .retrieve()
-                    .toBodilessEntity();
+            RestClient restClient = restClientBuilder.build();
+            try {
+                restClient
+                        .get()
+                        .uri(URI.create(baseUrl + "/storage/v1/bucket/" + supabaseBucketQuestions))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + supabaseServiceRoleKey)
+                        .header("apikey", supabaseServiceRoleKey)
+                        .retrieve()
+                        .toBodilessEntity();
+            } catch (HttpClientErrorException.NotFound exception) {
+                throw new QuestionAssetStorageException("STORAGE_BUCKET_NOT_FOUND", "Supabase bucket not found.", exception);
+            } catch (RestClientException exception) {
+                throw new QuestionAssetStorageException("STORAGE_UPLOAD_FAILED", "Could not validate Supabase bucket.", exception);
+            }
+
+            try {
+                ResponseEntity<Void> response = restClient
+                        .post()
+                        .uri(URI.create(baseUrl + "/storage/v1/object/" + supabaseBucketQuestions + "/" + encodedPath))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + supabaseServiceRoleKey)
+                        .header("apikey", supabaseServiceRoleKey)
+                        .header("x-upsert", "true")
+                        .contentType(MediaType.IMAGE_PNG)
+                        .body(content)
+                        .retrieve()
+                        .toBodilessEntity();
+                if (!response.getStatusCode().is2xxSuccessful()) {
+                    throw new QuestionAssetStorageException("STORAGE_UPLOAD_FAILED", "Supabase upload returned non-success status.");
+                }
+            } catch (QuestionAssetStorageException exception) {
+                throw exception;
+            } catch (HttpClientErrorException.NotFound exception) {
+                throw new QuestionAssetStorageException("STORAGE_BUCKET_NOT_FOUND", "Supabase bucket not found during upload.", exception);
+            } catch (RestClientException exception) {
+                throw new QuestionAssetStorageException("STORAGE_UPLOAD_FAILED", "Supabase upload failed.", exception);
+            }
 
             return new StoredAsset(
                     baseUrl + "/storage/v1/object/public/" + supabaseBucketQuestions + "/" + encodedPath,
@@ -57,7 +86,7 @@ public class QuestionAssetStorageService {
         return new StoredAsset(target.toUri().toString(), target.toString());
     }
 
-    private boolean isSupabaseConfigured() {
+    public boolean isSupabaseConfigured() {
         return supabaseUrl != null && !supabaseUrl.isBlank()
                 && supabaseServiceRoleKey != null && !supabaseServiceRoleKey.isBlank()
                 && supabaseBucketQuestions != null && !supabaseBucketQuestions.isBlank();

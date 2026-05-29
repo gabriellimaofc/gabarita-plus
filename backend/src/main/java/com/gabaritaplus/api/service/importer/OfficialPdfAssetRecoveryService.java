@@ -5,6 +5,7 @@ import com.gabaritaplus.api.entity.Question;
 import com.gabaritaplus.api.entity.QuestionAsset;
 import com.gabaritaplus.api.entity.enums.QuestionAssetType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
@@ -20,16 +21,27 @@ import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OfficialPdfAssetRecoveryService {
 
     private static final String BROKEN_IMAGE_URL = "https://enem.dev/broken-image.svg";
+    private static final List<String> ENEM_2023_Q1_NEEDLES = List.of(
+            "\u00BFQU\u00C9 ME PASA?",
+            "PORQU\u00C9 NO CONSIGO APRENDER",
+            "Como estrellas en la tierra",
+            "dislexia",
+            "O filme Como estrellas en la tierra"
+    );
 
     private final QuestionAssetStorageService storageService;
     private final RestClient.Builder restClientBuilder;
@@ -40,130 +52,317 @@ public class OfficialPdfAssetRecoveryService {
     public OfficialPdfAssetRecoveryResult recover(Question question, OfficialExamSource source) {
         List<String> warnings = new ArrayList<>();
         List<String> errors = new ArrayList<>();
+        OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics = OfficialPdfAssetRecoveryDiagnostics.builder()
+                .recoveryAttempted(true)
+                .officialSourceFound(source != null);
 
+        if (source == null) {
+            return fail(0, warnings, errors, diagnostics, "OFFICIAL_SOURCE_NOT_FOUND");
+        }
         if (source.getPdfUrl() == null || source.getPdfUrl().isBlank()) {
-            errors.add("OFFICIAL_PDF_NOT_FOUND");
-            return new OfficialPdfAssetRecoveryResult(0, warnings, errors);
+            return fail(0, warnings, errors, diagnostics, "OFFICIAL_PDF_NOT_FOUND");
         }
 
+        log.info(
+                "Starting official PDF asset recovery questionId={} sourceQuestionNumber={} year={} day={} bookColor={} pdfUrl={}",
+                question.getId(),
+                question.getSourceQuestionNumber(),
+                question.getSourceYear(),
+                question.getSourceDay(),
+                question.getSourceBookColor(),
+                source.getPdfUrl()
+        );
+
         try {
-            Path pdfPath = resolveOfficialPdf(source);
+            Path pdfPath = resolveOfficialPdf(source, diagnostics);
             try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
-                int pageIndex = findQuestionPage(document, question);
-                if (pageIndex < 0) {
-                    errors.add("QUESTION_PAGE_NOT_FOUND");
-                    return new OfficialPdfAssetRecoveryResult(0, warnings, errors);
+                int pageCount = document.getNumberOfPages();
+                diagnostics.pdfPageCount(pageCount);
+                if (pageCount <= 0) {
+                    return fail(0, warnings, errors, diagnostics, "PDF_EMPTY_OR_INVALID");
                 }
 
-                PDFRenderer renderer = new PDFRenderer(document);
-                BufferedImage pageImage = renderer.renderImageWithDPI(pageIndex, 180, ImageType.RGB);
-                Crop crop = broadQuestionCrop(pageImage, question);
-                BufferedImage cropImage = pageImage.getSubimage(crop.x(), crop.y(), crop.width(), crop.height());
+                PageSelection selection = findQuestionPage(document, question);
+                diagnostics.candidatePages(selection.candidatePages());
+                if (selection.pageIndex() < 0) {
+                    return fail(0, warnings, errors, diagnostics, "QUESTION_PAGE_NOT_FOUND");
+                }
 
+                int pageIndex = selection.pageIndex();
+                diagnostics.selectedPage(pageIndex + 1).recoveryMethod(selection.method());
+                log.info(
+                        "Official PDF page selected questionId={} selectedPage={} method={} candidatePages={}",
+                        question.getId(),
+                        pageIndex + 1,
+                        selection.method(),
+                        selection.candidatePages()
+                );
+
+                BufferedImage pageImage = renderPage(document, pageIndex, question.getId(), diagnostics, errors, warnings);
+                if (pageImage == null) {
+                    return result(0, warnings, errors, diagnostics.recoveryFailureReason("PDF_RENDER_FAILED"));
+                }
+
+                Crop crop = broadQuestionCrop(pageImage, question, selection.method());
+                BufferedImage cropImage = pageImage.getSubimage(crop.x(), crop.y(), crop.width(), crop.height());
                 byte[] png = toPng(cropImage);
                 String checksum = sha256(png);
+                warnings.add("ASSET_RECOVERY_NEEDS_REVIEW");
+
                 if (hasAssetWithChecksum(question, checksum)) {
                     warnings.add("ASSET_RECOVERED_FROM_OFFICIAL_PDF");
-                    warnings.add("ASSET_RECOVERY_NEEDS_REVIEW");
                     clearBrokenImageReferences(question);
-                    return new OfficialPdfAssetRecoveryResult(0, warnings, errors);
+                    return result(0, warnings, errors, diagnostics.recoveryMethod(selection.method()));
+                }
+
+                if (!storageService.isSupabaseConfigured()) {
+                    diagnostics.storageUploadAttempted(false).storageUploadSuccess(false);
+                    return fail(0, warnings, errors, diagnostics, "STORAGE_NOT_CONFIGURED");
                 }
 
                 String storagePath = buildStoragePath(question, checksum);
-                QuestionAssetStorageService.StoredAsset storedAsset = storageService.storePng(storagePath, png);
-                QuestionAsset asset = new QuestionAsset();
-                asset.setQuestion(question);
-                asset.setType(QuestionAssetType.IMAGE);
-                asset.setUrl(storedAsset.publicUrl());
-                asset.setStoragePath(storedAsset.storagePath());
-                asset.setOriginalFileName(Path.of(storagePath).getFileName().toString());
-                asset.setSourcePage(pageIndex + 1);
-                asset.setCropX(crop.x());
-                asset.setCropY(crop.y());
-                asset.setCropWidth(crop.width());
-                asset.setCropHeight(crop.height());
-                asset.setAltText("Recorte oficial do PDF do INEP para a questão " + question.getSourceQuestionNumber() + ".");
-                asset.setCaption("Recorte recuperado do PDF oficial do INEP. Revisão humana recomendada antes da publicação.");
-                asset.setChecksum(checksum);
-                question.getAssets().add(asset);
+                diagnostics.storageUploadAttempted(true);
+                QuestionAssetStorageService.StoredAsset storedAsset = storeOfficialAsset(
+                        storagePath,
+                        png,
+                        question.getId(),
+                        diagnostics,
+                        errors
+                );
+                if (storedAsset == null) {
+                    return result(0, warnings, errors, diagnostics);
+                }
 
-                question.setOfficialPage(pageIndex + 1);
-                clearBrokenImageReferences(question);
-                warnings.add("ASSET_RECOVERED_FROM_OFFICIAL_PDF");
-                warnings.add("ASSET_RECOVERY_NEEDS_REVIEW");
-                return new OfficialPdfAssetRecoveryResult(1, warnings, errors);
+                try {
+                    QuestionAsset asset = buildAsset(question, storedAsset, storagePath, pageIndex, crop, checksum);
+                    question.getAssets().add(asset);
+                    question.setOfficialPage(pageIndex + 1);
+                    clearBrokenImageReferences(question);
+                    warnings.add("ASSET_RECOVERED_FROM_OFFICIAL_PDF");
+                } catch (Exception exception) {
+                    log.warn("Official PDF asset entity save preparation failed questionId={} reason={}", question.getId(), exception.getMessage());
+                    return fail(0, warnings, errors, diagnostics, "ASSET_ENTITY_SAVE_FAILED");
+                }
+
+                log.info(
+                        "Official PDF asset recovered questionId={} selectedPage={} crop={}x{}+{}+{} storagePath={} url={}",
+                        question.getId(),
+                        pageIndex + 1,
+                        crop.width(),
+                        crop.height(),
+                        crop.x(),
+                        crop.y(),
+                        storedAsset.storagePath(),
+                        storedAsset.publicUrl()
+                );
+                return result(1, warnings, errors, diagnostics);
             }
+        } catch (PdfRecoveryException exception) {
+            log.warn("Official PDF asset recovery failed questionId={} reason={}", question.getId(), exception.reason());
+            return fail(0, warnings, errors, diagnostics, exception.reason());
         } catch (Exception exception) {
+            log.warn("Official PDF asset recovery failed questionId={} reason={}", question.getId(), exception.getMessage());
+            return fail(0, warnings, errors, diagnostics, "UNKNOWN_RECOVERY_ERROR");
+        }
+    }
+
+    private BufferedImage renderPage(
+            PDDocument document,
+            int pageIndex,
+            Long questionId,
+            OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics,
+            List<String> errors,
+            List<String> warnings
+    ) {
+        try {
+            PDFRenderer renderer = new PDFRenderer(document);
+            BufferedImage pageImage = renderer.renderImageWithDPI(pageIndex, 180, ImageType.RGB);
+            diagnostics.pdfRendered(true)
+                    .renderedWidth(pageImage.getWidth())
+                    .renderedHeight(pageImage.getHeight());
+            log.info(
+                    "Official PDF page rendered questionId={} selectedPage={} width={} height={}",
+                    questionId,
+                    pageIndex + 1,
+                    pageImage.getWidth(),
+                    pageImage.getHeight()
+            );
+            return pageImage;
+        } catch (Exception exception) {
+            errors.add("PDF_RENDER_FAILED");
             warnings.add("ASSET_RECOVERY_FAILED");
-            return new OfficialPdfAssetRecoveryResult(0, warnings, errors);
+            log.warn("Official PDF render failed questionId={} selectedPage={} reason={}", questionId, pageIndex + 1, exception.getMessage());
+            return null;
         }
     }
 
-    private Path resolveOfficialPdf(OfficialExamSource source) throws Exception {
-        if (source.getLocalPdfPath() != null && !source.getLocalPdfPath().isBlank()) {
-            Path localPath = Path.of(source.getLocalPdfPath());
-            if (Files.exists(localPath)) {
-                return localPath;
-            }
+    private QuestionAssetStorageService.StoredAsset storeOfficialAsset(
+            String storagePath,
+            byte[] png,
+            Long questionId,
+            OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics,
+            List<String> errors
+    ) throws Exception {
+        try {
+            QuestionAssetStorageService.StoredAsset storedAsset = storageService.storePng(storagePath, png);
+            diagnostics.storageUploadSuccess(true).assetUrl(storedAsset.publicUrl());
+            log.info("Official PDF asset upload completed questionId={} storagePath={} url={}", questionId, storedAsset.storagePath(), storedAsset.publicUrl());
+            return storedAsset;
+        } catch (QuestionAssetStorageException exception) {
+            errors.add(exception.reason());
+            diagnostics.storageUploadSuccess(false).recoveryFailureReason(exception.reason());
+            log.warn("Official PDF asset storage failed questionId={} reason={}", questionId, exception.reason());
+            return null;
         }
-
-        Path cacheDirectory = Path.of(pdfCacheDir);
-        Files.createDirectories(cacheDirectory);
-        String fileName = source.getYear() + "_D" + source.getDay() + "_" + source.getBookColor() + ".pdf";
-        Path cachedPdf = cacheDirectory.resolve(fileName.replaceAll("[^A-Za-z0-9_.-]", "_"));
-        if (Files.exists(cachedPdf) && Files.size(cachedPdf) > 0) {
-            return cachedPdf;
-        }
-
-        byte[] pdf = restClientBuilder.build()
-                .get()
-                .uri(source.getPdfUrl())
-                .retrieve()
-                .body(byte[].class);
-        if (pdf == null || pdf.length == 0) {
-            throw new IllegalStateException("Official PDF download returned empty content.");
-        }
-        Files.write(cachedPdf, pdf);
-        return cachedPdf;
     }
 
-    private int findQuestionPage(PDDocument document, Question question) throws Exception {
-        if (question.getOfficialPage() != null && question.getOfficialPage() > 0
-                && question.getOfficialPage() <= document.getNumberOfPages()) {
-            return question.getOfficialPage() - 1;
+    private OfficialPdfAssetRecoveryResult fail(
+            int recoveredAssets,
+            List<String> warnings,
+            List<String> errors,
+            OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics,
+            String reason
+    ) {
+        if (!errors.contains(reason)) {
+            errors.add(reason);
         }
-        if (question.getSourcePage() != null && question.getSourcePage() > 0
-                && question.getSourcePage() <= document.getNumberOfPages()) {
-            return question.getSourcePage() - 1;
+        if (!warnings.contains("ASSET_RECOVERY_FAILED")) {
+            warnings.add("ASSET_RECOVERY_FAILED");
         }
+        return result(recoveredAssets, warnings, errors, diagnostics.recoveryFailureReason(reason));
+    }
 
-        Integer number = question.getSourceQuestionNumber();
-        if (number == null) {
-            return -1;
-        }
-
-        PDFTextStripper stripper = new PDFTextStripper();
-        String padded = String.format(Locale.ROOT, "%02d", number);
-        List<String> needles = List.of(
-                "QUESTÃO " + padded,
-                "QUESTAO " + padded,
-                "Questão " + number,
-                "QUESTÃO " + number
+    private OfficialPdfAssetRecoveryResult result(
+            int recoveredAssets,
+            List<String> warnings,
+            List<String> errors,
+            OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics
+    ) {
+        return new OfficialPdfAssetRecoveryResult(
+                recoveredAssets,
+                List.copyOf(warnings.stream().distinct().toList()),
+                List.copyOf(errors.stream().distinct().toList()),
+                diagnostics.build()
         );
+    }
+
+    private Path resolveOfficialPdf(OfficialExamSource source, OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics) {
+        try {
+            if (source.getLocalPdfPath() != null && !source.getLocalPdfPath().isBlank()) {
+                Path localPath = Path.of(source.getLocalPdfPath());
+                if (Files.exists(localPath) && Files.size(localPath) > 0) {
+                    diagnostics.pdfDownloaded(true).pdfSizeBytes(Files.size(localPath));
+                    log.info("Official PDF loaded from local cache path={} bytes={}", localPath, Files.size(localPath));
+                    return localPath;
+                }
+            }
+
+            Path cacheDirectory = Path.of(pdfCacheDir);
+            Files.createDirectories(cacheDirectory);
+            String fileName = source.getYear() + "_D" + source.getDay() + "_" + source.getBookColor() + ".pdf";
+            Path cachedPdf = cacheDirectory.resolve(fileName.replaceAll("[^A-Za-z0-9_.-]", "_"));
+            if (Files.exists(cachedPdf) && Files.size(cachedPdf) > 0) {
+                diagnostics.pdfDownloaded(true).pdfSizeBytes(Files.size(cachedPdf));
+                log.info("Official PDF loaded from generated cache path={} bytes={}", cachedPdf, Files.size(cachedPdf));
+                return cachedPdf;
+            }
+
+            byte[] pdf = restClientBuilder.build()
+                    .get()
+                    .uri(source.getPdfUrl())
+                    .retrieve()
+                    .body(byte[].class);
+            if (pdf == null || pdf.length == 0) {
+                throw new PdfRecoveryException("PDF_EMPTY_OR_INVALID");
+            }
+            Files.write(cachedPdf, pdf);
+            diagnostics.pdfDownloaded(true).pdfSizeBytes((long) pdf.length);
+            log.info("Official PDF downloaded pdfUrl={} bytes={}", source.getPdfUrl(), pdf.length);
+            return cachedPdf;
+        } catch (PdfRecoveryException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new PdfRecoveryException("PDF_DOWNLOAD_FAILED", exception);
+        }
+    }
+
+    private PageSelection findQuestionPage(PDDocument document, Question question) throws Exception {
+        Set<Integer> candidatePages = new LinkedHashSet<>();
+        List<String> needles = buildNeedles(question);
+        PDFTextStripper stripper = new PDFTextStripper();
+
+        log.info("Official PDF text search questionId={} needles={}", question.getId(), needles);
         for (int page = 1; page <= document.getNumberOfPages(); page++) {
             stripper.setStartPage(page);
             stripper.setEndPage(page);
-            String text = stripper.getText(document).toUpperCase(Locale.ROOT);
+            String text = normalizeSearchText(stripper.getText(document));
             for (String needle : needles) {
-                if (text.contains(needle.toUpperCase(Locale.ROOT))) {
-                    return page - 1;
+                if (!needle.isBlank() && text.contains(normalizeSearchText(needle))) {
+                    candidatePages.add(page);
+                    return new PageSelection(page - 1, List.copyOf(candidatePages), "TEXT_MATCH");
                 }
             }
         }
-        return -1;
+
+        List<Integer> fallbackPages = fallbackPages(question, document.getNumberOfPages());
+        candidatePages.addAll(fallbackPages);
+        if (!fallbackPages.isEmpty()) {
+            return new PageSelection(fallbackPages.get(0) - 1, List.copyOf(candidatePages), "FALLBACK_WIDE_CROP");
+        }
+
+        return new PageSelection(-1, List.copyOf(candidatePages), "NO_PAGE_FOUND");
     }
 
-    private Crop broadQuestionCrop(BufferedImage image, Question question) {
+    private List<String> buildNeedles(Question question) {
+        List<String> needles = new ArrayList<>();
+        Integer number = question.getSourceQuestionNumber();
+        if (number != null) {
+            String padded = String.format(Locale.ROOT, "%02d", number);
+            needles.add("QUEST\u00C3O " + padded);
+            needles.add("QUESTAO " + padded);
+            needles.add("Quest\u00E3o " + number);
+            needles.add("QUEST\u00C3O " + number);
+        }
+        if (question.getSourceYear() != null && question.getSourceYear() == 2023
+                && question.getSourceQuestionNumber() != null && question.getSourceQuestionNumber() == 1) {
+            needles.addAll(ENEM_2023_Q1_NEEDLES);
+        }
+        return needles;
+    }
+
+    private String normalizeSearchText(String value) {
+        if (value == null) {
+            return "";
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private List<Integer> fallbackPages(Question question, int pageCount) {
+        if (question.getOfficialPage() != null && question.getOfficialPage() > 0 && question.getOfficialPage() <= pageCount) {
+            return List.of(question.getOfficialPage());
+        }
+        if (question.getSourcePage() != null && question.getSourcePage() > 0 && question.getSourcePage() <= pageCount) {
+            return List.of(question.getSourcePage());
+        }
+        if (question.getSourceQuestionNumber() != null && question.getSourceQuestionNumber() == 1) {
+            List<Integer> pages = new ArrayList<>();
+            for (int page = 2; page <= Math.min(pageCount, 6); page++) {
+                pages.add(page);
+            }
+            return pages;
+        }
+        int questionNumber = question.getSourceQuestionNumber() == null ? 1 : question.getSourceQuestionNumber();
+        return List.of(Math.min(pageCount, Math.max(1, 2 + (questionNumber - 1) / 3)));
+    }
+
+    private Crop broadQuestionCrop(BufferedImage image, Question question, String method) {
+        if (method != null && method.startsWith("FALLBACK")) {
+            return new Crop(0, 0, image.getWidth(), image.getHeight());
+        }
         int marginX = Math.max(24, image.getWidth() / 25);
         int top = Math.max(24, image.getHeight() / 18);
         int height = (int) Math.round(image.getHeight() * 0.72);
@@ -204,6 +403,31 @@ public class OfficialPdfAssetRecoveryService {
         );
     }
 
+    private QuestionAsset buildAsset(
+            Question question,
+            QuestionAssetStorageService.StoredAsset storedAsset,
+            String storagePath,
+            int pageIndex,
+            Crop crop,
+            String checksum
+    ) {
+        QuestionAsset asset = new QuestionAsset();
+        asset.setQuestion(question);
+        asset.setType(QuestionAssetType.IMAGE);
+        asset.setUrl(storedAsset.publicUrl());
+        asset.setStoragePath(storedAsset.storagePath());
+        asset.setOriginalFileName(Path.of(storagePath).getFileName().toString());
+        asset.setSourcePage(pageIndex + 1);
+        asset.setCropX(crop.x());
+        asset.setCropY(crop.y());
+        asset.setCropWidth(crop.width());
+        asset.setCropHeight(crop.height());
+        asset.setAltText("Recorte oficial do PDF do INEP para a quest\u00E3o " + question.getSourceQuestionNumber() + ".");
+        asset.setCaption("Recorte amplo recuperado do PDF oficial do INEP. Revis\u00E3o humana obrigat\u00F3ria antes da publica\u00E7\u00E3o.");
+        asset.setChecksum(checksum);
+        return asset;
+    }
+
     private void clearBrokenImageReferences(Question question) {
         question.setImageUrl(removeBrokenImage(question.getImageUrl()));
         question.setStatement(removeBrokenImage(question.getStatement()));
@@ -215,12 +439,33 @@ public class OfficialPdfAssetRecoveryService {
             return null;
         }
         return value
-                .replaceAll("(?i)<img[^>]+src=[\"']" + java.util.regex.Pattern.quote(BROKEN_IMAGE_URL) + "[\"'][^>]*>", "[Imagem oficial recuperada nos recursos da questão.]")
-                .replace("![](" + BROKEN_IMAGE_URL + ")", "[Imagem oficial recuperada nos recursos da questão.]")
-                .replace("![ ](" + BROKEN_IMAGE_URL + ")", "[Imagem oficial recuperada nos recursos da questão.]")
+                .replaceAll("(?i)<img[^>]+src=[\"']" + java.util.regex.Pattern.quote(BROKEN_IMAGE_URL) + "[\"'][^>]*>", "[Imagem oficial recuperada nos recursos da quest\u00E3o.]")
+                .replace("![](" + BROKEN_IMAGE_URL + ")", "[Imagem oficial recuperada nos recursos da quest\u00E3o.]")
+                .replace("![ ](" + BROKEN_IMAGE_URL + ")", "[Imagem oficial recuperada nos recursos da quest\u00E3o.]")
                 .replace(BROKEN_IMAGE_URL, "");
     }
 
+    private record PageSelection(int pageIndex, List<Integer> candidatePages, String method) {
+    }
+
     private record Crop(int x, int y, int width, int height) {
+    }
+
+    private static class PdfRecoveryException extends RuntimeException {
+        private final String reason;
+
+        PdfRecoveryException(String reason) {
+            super(reason);
+            this.reason = reason;
+        }
+
+        PdfRecoveryException(String reason, Throwable cause) {
+            super(reason, cause);
+            this.reason = reason;
+        }
+
+        String reason() {
+            return reason;
+        }
     }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 public record OfficialPdfAssetRecoveryResult(
         int recoveredAssets,
         List<String> warnings,
-        List<String> errors
+        List<String> errors,
+        OfficialPdfAssetRecoveryDiagnostics diagnostics
 ) {
 }

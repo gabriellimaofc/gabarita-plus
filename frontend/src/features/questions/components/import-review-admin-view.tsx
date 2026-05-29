@@ -723,6 +723,32 @@ export function ImportReviewAdminView() {
                       {item.recoveredAssets} asset(s) recuperado(s) do PDF oficial do INEP.
                     </p>
                   ) : null}
+                  {item.recoveryAttempted ? (
+                    <div className="mt-3 grid gap-2 rounded-[14px] border border-border/70 bg-background/70 p-3 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
+                      <span>Fonte oficial: {item.officialSourceFound ? "encontrada" : "não encontrada"}</span>
+                      <span>PDF baixado: {item.pdfDownloaded ? "sim" : "não"}</span>
+                      <span>Páginas do PDF: {item.pdfPageCount ?? "-"}</span>
+                      <span>Páginas candidatas: {item.candidatePages?.length ? item.candidatePages.join(", ") : "-"}</span>
+                      <span>Página escolhida: {item.selectedPage ?? "-"}</span>
+                      <span>Renderizou PDF: {item.pdfRendered ? "sim" : "não"}</span>
+                      <span>Upload tentado: {item.storageUploadAttempted ? "sim" : "não"}</span>
+                      <span>Upload OK: {item.storageUploadSuccess ? "sim" : "não"}</span>
+                      <span>Método: {item.recoveryMethod ?? "-"}</span>
+                      <span className="md:col-span-2 xl:col-span-3">
+                        Motivo técnico: {item.recoveryFailureReason ?? "sem falha técnica registrada"}
+                      </span>
+                      {item.assetUrl ? (
+                        <a
+                          className="break-all font-medium text-primary underline-offset-4 hover:underline md:col-span-2 xl:col-span-3"
+                          href={item.assetUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Abrir asset recuperado
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {item.warnings.length ? (
                     <p className="mt-2 break-words text-xs text-amber-600">Warnings: {item.warnings.join(" | ")}</p>
                   ) : null}

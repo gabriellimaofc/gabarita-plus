@@ -362,7 +362,7 @@ public class QuestionAutoValidationService {
         applyAutoValidation(question);
         appendWarnings(question, warnings);
         appendErrors(question, errors);
-        return toOfficialItem(question, false, 0, previousValidated, previousScore, warnings, errors);
+        return toOfficialItem(question, false, 0, null, previousValidated, previousScore, warnings, errors);
     }
 
     private OfficialValidationItemResponse recoverQuestionAssets(Question question) {
@@ -377,8 +377,14 @@ public class QuestionAutoValidationService {
         errors.addAll(match.errors());
         boolean assetRecovered = false;
         int recoveredAssets = 0;
+        OfficialPdfAssetRecoveryDiagnostics diagnostics = null;
 
         if (source.isEmpty()) {
+            diagnostics = OfficialPdfAssetRecoveryDiagnostics.builder()
+                    .recoveryAttempted(true)
+                    .officialSourceFound(false)
+                    .recoveryFailureReason("OFFICIAL_SOURCE_NOT_FOUND")
+                    .build();
             if (!errors.contains("AMBIGUOUS_OFFICIAL_SOURCE")) {
                 warnings.add("OFFICIAL_SOURCE_NOT_FOUND");
                 errors.add("OFFICIAL_PDF_NOT_FOUND");
@@ -386,14 +392,25 @@ public class QuestionAutoValidationService {
         } else {
             attachOfficialSource(question, source.get());
             if (source.get().getPdfUrl() == null || source.get().getPdfUrl().isBlank()) {
+                diagnostics = OfficialPdfAssetRecoveryDiagnostics.builder()
+                        .recoveryAttempted(true)
+                        .officialSourceFound(true)
+                        .recoveryFailureReason("OFFICIAL_PDF_NOT_FOUND")
+                        .build();
                 errors.add("OFFICIAL_PDF_NOT_FOUND");
             } else if (hasBrokenImageReference(question) || (mentionsVisualAsset(question) && question.getAssets().isEmpty())) {
                 OfficialPdfAssetRecoveryResult result = officialPdfAssetRecoveryService.recover(question, source.get());
                 warnings.addAll(result.warnings());
                 errors.addAll(result.errors());
+                diagnostics = result.diagnostics();
                 recoveredAssets = result.recoveredAssets();
                 assetRecovered = recoveredAssets > 0;
             } else {
+                diagnostics = OfficialPdfAssetRecoveryDiagnostics.builder()
+                        .recoveryAttempted(false)
+                        .officialSourceFound(true)
+                        .recoveryMethod("ASSET_RECOVERY_NOT_REQUIRED")
+                        .build();
                 warnings.add("ASSET_RECOVERY_NOT_REQUIRED");
             }
         }
@@ -401,7 +418,7 @@ public class QuestionAutoValidationService {
         applyAutoValidation(question);
         appendWarnings(question, warnings);
         appendErrors(question, errors);
-        return toOfficialItem(question, assetRecovered, recoveredAssets, previousValidated, previousScore, warnings, errors);
+        return toOfficialItem(question, assetRecovered, recoveredAssets, diagnostics, previousValidated, previousScore, warnings, errors);
     }
 
     private List<Question> reviewCandidates() {
@@ -567,6 +584,7 @@ public class QuestionAutoValidationService {
             Question question,
             boolean assetRecovered,
             int recoveredAssets,
+            OfficialPdfAssetRecoveryDiagnostics diagnostics,
             boolean previousValidated,
             Integer previousScore,
             List<String> warnings,
@@ -594,6 +612,21 @@ public class QuestionAutoValidationService {
                 question.getAutoValidationStatus(),
                 Boolean.TRUE.equals(question.getRequiresAssetReview()),
                 Boolean.TRUE.equals(question.getBrokenImageDetected()),
+                diagnostics != null && diagnostics.recoveryAttempted(),
+                diagnostics != null && diagnostics.officialSourceFound(),
+                diagnostics == null ? false : diagnostics.pdfDownloaded(),
+                diagnostics == null ? null : diagnostics.pdfSizeBytes(),
+                diagnostics == null ? null : diagnostics.pdfPageCount(),
+                diagnostics == null ? List.of() : diagnostics.candidatePages(),
+                diagnostics == null ? null : diagnostics.selectedPage(),
+                diagnostics != null && diagnostics.pdfRendered(),
+                diagnostics == null ? null : diagnostics.renderedWidth(),
+                diagnostics == null ? null : diagnostics.renderedHeight(),
+                diagnostics != null && diagnostics.storageUploadAttempted(),
+                diagnostics != null && diagnostics.storageUploadSuccess(),
+                diagnostics == null ? null : diagnostics.recoveryFailureReason(),
+                diagnostics == null ? null : diagnostics.recoveryMethod(),
+                diagnostics == null ? null : diagnostics.assetUrl(),
                 previousValidated != Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource())
                         || !java.util.Objects.equals(previousScore, question.getAutoValidationScore()),
                 List.copyOf(mergedWarnings.stream()
