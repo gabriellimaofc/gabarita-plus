@@ -26,6 +26,13 @@ export function useReviewQuestion(questionId: number | null) {
   });
 }
 
+export function useReviewCounters() {
+  return useQuery({
+    queryKey: ["admin-review-counters"],
+    queryFn: () => adminImportService.getReviewCounters(),
+  });
+}
+
 export function useUpdateReviewStatus() {
   const queryClient = useQueryClient();
 
@@ -34,6 +41,7 @@ export function useUpdateReviewStatus() {
       adminImportService.updateReviewStatus(id, payload),
     onSuccess: (question) => {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
       toast.success("Status de revisao atualizado.");
     },
@@ -55,6 +63,7 @@ export function useValidateOfficialSource() {
     }) => adminImportService.validateOfficialSource(id, payload),
     onSuccess: (question) => {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
       toast.success("Questao marcada como validada na fonte oficial.");
     },
@@ -70,11 +79,59 @@ export function usePublishReviewQuestion() {
     mutationFn: (id: number) => adminImportService.publishReviewQuestion(id),
     onSuccess: (question) => {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
       queryClient.invalidateQueries({ queryKey: ["questions"] });
       toast.success("Questao publicada com sucesso.");
     },
     onError: (error) =>
       toast.error(getErrorMessage(error, "Nao foi possivel publicar a questao.")),
+  });
+}
+
+export function useAutoValidateQuestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => adminImportService.autoValidateQuestion(id),
+    onSuccess: (question) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.setQueryData(["admin-review-question", question.id], question);
+      toast.success("Auto validacao concluida.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel auto validar a questao.")),
+  });
+}
+
+export function useAutoValidateBatch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => adminImportService.autoValidateBatch(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      toast.success(`Auto validacao concluida: ${result.processed} questoes processadas.`);
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel auto validar o lote.")),
+  });
+}
+
+export function useAutoPublishSafe() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => adminImportService.autoPublishSafe(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.invalidateQueries({ queryKey: ["questions"] });
+      toast.success(`Publicacao segura processada: ${result.published} questoes publicadas.`);
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel publicar questoes seguras.")),
   });
 }

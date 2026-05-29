@@ -2,6 +2,8 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 import { apiClient, unwrapResponse } from "@/services/http/api-client";
 import type { ApiResponse, PageMetadata } from "@/types/api";
 import type {
+  AutoValidationBatchResult,
+  AutoValidationCounters,
   ReviewOfficialValidationPayload,
   ReviewQuestionDetail,
   ReviewQuestionFilters,
@@ -20,6 +22,7 @@ function buildReviewParams(filters: ReviewQuestionFilters) {
     source: filters.source || undefined,
     year: filters.year || undefined,
     subject: filters.subject || undefined,
+    autoValidationStatus: filters.autoValidationStatus || undefined,
   };
 }
 
@@ -73,6 +76,34 @@ export const adminImportService = {
   async publishReviewQuestion(id: number) {
     const response = await apiClient.post<ApiResponse<ReviewQuestionDetail>>(
       `/admin/import/questions/review/${id}/publish`,
+    );
+    return unwrapResponse(response);
+  },
+
+  async autoValidateQuestion(id: number) {
+    const response = await apiClient.post<ApiResponse<ReviewQuestionDetail>>(
+      `/admin/import/questions/${id}/auto-validate`,
+    );
+    return unwrapResponse(response);
+  },
+
+  async autoValidateBatch() {
+    const response = await apiClient.post<ApiResponse<AutoValidationBatchResult>>(
+      "/admin/import/questions/auto-validate-batch",
+    );
+    return unwrapResponse(response);
+  },
+
+  async autoPublishSafe() {
+    const response = await apiClient.post<ApiResponse<AutoValidationBatchResult>>(
+      "/admin/import/questions/auto-publish-safe",
+    );
+    return unwrapResponse(response);
+  },
+
+  async getReviewCounters() {
+    const response = await apiClient.get<ApiResponse<AutoValidationCounters>>(
+      "/admin/import/questions/review/counters",
     );
     return unwrapResponse(response);
   },

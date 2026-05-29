@@ -7,8 +7,13 @@ export type QuestionImportStatus =
   | "DRAFT"
   | "NEEDS_REVIEW"
   | "VALIDATED"
+  | "AUTO_VALIDATED"
   | "PUBLISHED"
   | "INVALID";
+export type AutoValidationStatus =
+  | "SAFE_TO_AUTO_VALIDATE"
+  | "NEEDS_HUMAN_REVIEW"
+  | "AUTO_INVALID";
 export type QuestionAssetType =
   | "IMAGE"
   | "GRAPH"
@@ -108,6 +113,13 @@ export interface ReviewQuestionSummary {
   importedAt: string | null;
   alternativesCount: number;
   assetsCount: number;
+  autoValidationScore: number;
+  autoValidationStatus: AutoValidationStatus;
+  autoValidationWarnings: string | null;
+  autoValidationErrors: string | null;
+  brokenImageDetected: boolean;
+  suspiciousTextDetected: boolean;
+  requiresAssetReview: boolean;
 }
 
 export interface ReviewQuestionDetail extends Omit<Question, "favorite" | "answered" | "answeredCorrectly"> {
@@ -115,6 +127,14 @@ export interface ReviewQuestionDetail extends Omit<Question, "favorite" | "answe
   importBatchId: number | null;
   alternativesCount: number;
   assetsCount: number;
+  autoValidationScore: number;
+  autoValidationStatus: AutoValidationStatus;
+  autoValidationErrors: string | null;
+  autoValidationWarnings: string | null;
+  autoValidatedAt: string | null;
+  brokenImageDetected: boolean;
+  suspiciousTextDetected: boolean;
+  requiresAssetReview: boolean;
 }
 
 export interface ReviewQuestionFilters {
@@ -126,6 +146,7 @@ export interface ReviewQuestionFilters {
   source?: string;
   year?: number | "";
   subject?: string;
+  autoValidationStatus?: AutoValidationStatus | "";
 }
 
 export interface ReviewQuestionListResponse {
@@ -142,6 +163,22 @@ export interface ReviewOfficialValidationPayload {
   officialPdfUrl?: string;
   officialAnswerKeyUrl?: string;
   officialPage?: number | null;
+}
+
+export interface AutoValidationCounters {
+  safe: number;
+  needsReview: number;
+  invalid: number;
+  brokenImages: number;
+  pendingInep: number;
+}
+
+export interface AutoValidationBatchResult {
+  processed: number;
+  safe: number;
+  needsReview: number;
+  invalid: number;
+  published: number;
 }
 
 export interface QuestionFilters {

@@ -18,6 +18,7 @@ import com.gabaritaplus.api.entity.Question;
 import com.gabaritaplus.api.entity.User;
 import com.gabaritaplus.api.entity.UserAnswer;
 import com.gabaritaplus.api.entity.enums.MasteryStatus;
+import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.entity.enums.ReviewPriority;
 import com.gabaritaplus.api.exception.ResourceNotFoundException;
@@ -27,6 +28,7 @@ import com.gabaritaplus.api.repository.FavoriteQuestionRepository;
 import com.gabaritaplus.api.repository.QuestionRepository;
 import com.gabaritaplus.api.repository.UserAnswerRepository;
 import com.gabaritaplus.api.service.importer.QuestionImportSupport;
+import com.gabaritaplus.api.service.importer.QuestionAutoValidationService;
 import com.gabaritaplus.api.specification.QuestionSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +63,7 @@ public class QuestionService {
     private final QuestionMapper questionMapper;
     private final AuthenticatedUserService authenticatedUserService;
     private final QuestionImportSupport questionImportSupport;
+    private final QuestionAutoValidationService questionAutoValidationService;
 
     @Transactional
     public QuestionResponse create(QuestionRequest request) {
@@ -117,6 +120,7 @@ public class QuestionService {
             String source,
             Integer year,
             String subject,
+            AutoValidationStatus autoValidationStatus,
             Pageable pageable
     ) {
         Page<Question> page = questionRepository.findAll(
@@ -124,7 +128,8 @@ public class QuestionService {
                         resolveReviewStatuses(statuses),
                         normalizeSourceFilter(source),
                         year,
-                        normalizeSubjectFilter(subject)
+                        normalizeSubjectFilter(subject),
+                        autoValidationStatus
                 ),
                 pageable
         );
@@ -190,6 +195,7 @@ public class QuestionService {
     public AdminImportedQuestionReviewDetailResponse publishReviewQuestion(Long id) {
         Question question = getQuestionEntity(id);
         initializeQuestionGraph(question);
+        questionAutoValidationService.applyAutoValidation(question);
         validatePublishable(question);
         question.setImportStatus(QuestionImportStatus.PUBLISHED);
         Question saved = questionRepository.save(question);
@@ -512,6 +518,7 @@ public class QuestionService {
                 QuestionImportStatus.DRAFT,
                 QuestionImportStatus.NEEDS_REVIEW,
                 QuestionImportStatus.VALIDATED,
+                QuestionImportStatus.AUTO_VALIDATED,
                 QuestionImportStatus.INVALID
         );
     }
@@ -562,7 +569,14 @@ public class QuestionService {
                 question.getCreatedAt(),
                 question.getImportedAt(),
                 question.getAlternatives().size(),
-                question.getAssets().size()
+                question.getAssets().size(),
+                question.getAutoValidationScore(),
+                question.getAutoValidationStatus(),
+                question.getAutoValidationWarnings(),
+                question.getAutoValidationErrors(),
+                question.getBrokenImageDetected(),
+                question.getSuspiciousTextDetected(),
+                question.getRequiresAssetReview()
         );
     }
 
@@ -607,6 +621,14 @@ public class QuestionService {
                 question.getCorrectAlternative(),
                 question.getAlternatives().size(),
                 question.getAssets().size(),
+                question.getAutoValidationScore(),
+                question.getAutoValidationStatus(),
+                question.getAutoValidationErrors(),
+                question.getAutoValidationWarnings(),
+                question.getAutoValidatedAt(),
+                question.getBrokenImageDetected(),
+                question.getSuspiciousTextDetected(),
+                question.getRequiresAssetReview(),
                 question.getAssets().stream().map(questionMapper::toAssetResponse).toList(),
                 question.getAlternatives().stream().map(questionMapper::toAlternativeResponse).toList(),
                 question.getCreatedAt(),
@@ -626,6 +648,12 @@ public class QuestionService {
         }
         if (hasBrokenVisualReference(question)) {
             throw new IllegalArgumentException("A questao possui imagem ou recurso visual quebrado e nao pode ser publicada.");
+        }
+        if (Boolean.TRUE.equals(question.getSuspiciousTextDetected())) {
+            throw new IllegalArgumentException("A questao possui texto suspeito e precisa de revisao manual antes da publicacao.");
+        }
+        if (Boolean.TRUE.equals(question.getRequiresAssetReview())) {
+            throw new IllegalArgumentException("A questao depende de asset visual pendente e nao pode ser publicada.");
         }
     }
 

@@ -4,12 +4,18 @@ import com.gabaritaplus.api.dto.common.ApiResponse;
 import com.gabaritaplus.api.dto.importer.ImportBatchResponse;
 import com.gabaritaplus.api.dto.importer.ImportQuestionsPayload;
 import com.gabaritaplus.api.dto.importer.ImportReportResponse;
+import com.gabaritaplus.api.dto.importer.official.OfficialExamSourceRequest;
+import com.gabaritaplus.api.dto.importer.official.OfficialExamSourceResponse;
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewDetailResponse;
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse;
+import com.gabaritaplus.api.dto.importer.review.AutoValidationBatchResponse;
+import com.gabaritaplus.api.dto.importer.review.AutoValidationCountersResponse;
 import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionStatusRequest;
 import com.gabaritaplus.api.dto.importer.review.ValidateOfficialSourceRequest;
+import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.service.QuestionService;
+import com.gabaritaplus.api.service.importer.QuestionAutoValidationService;
 import com.gabaritaplus.api.service.importer.QuestionImportService;
 import com.gabaritaplus.api.util.PageUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,6 +48,7 @@ public class AdminImportController {
 
     private final QuestionImportService questionImportService;
     private final QuestionService questionService;
+    private final QuestionAutoValidationService questionAutoValidationService;
 
     @PostMapping(value = "/questions/json", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ImportReportResponse>> importJson(@RequestParam("file") MultipartFile file) {
@@ -92,13 +99,15 @@ public class AdminImportController {
             @RequestParam(required = false) List<QuestionImportStatus> status,
             @RequestParam(required = false) String source,
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) String subject
+            @RequestParam(required = false) String subject,
+            @RequestParam(required = false) AutoValidationStatus autoValidationStatus
     ) {
         Page<AdminImportedQuestionReviewSummaryResponse> result = questionService.listReviewQuestions(
                 status,
                 source,
                 year,
                 subject,
+                autoValidationStatus,
                 PageRequest.of(page, size, Sort.by(direction, sortBy))
         );
         return ResponseEntity.ok(ApiResponse.success(
@@ -143,6 +152,57 @@ public class AdminImportController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Questao publicada com sucesso.",
                 questionService.publishReviewQuestion(id)
+        ));
+    }
+
+    @PostMapping("/official-sources")
+    public ResponseEntity<ApiResponse<OfficialExamSourceResponse>> createOfficialSource(
+            @Valid @RequestBody OfficialExamSourceRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Fonte oficial cadastrada com sucesso.",
+                questionAutoValidationService.createOfficialSource(request)
+        ));
+    }
+
+    @GetMapping("/official-sources")
+    public ResponseEntity<ApiResponse<List<OfficialExamSourceResponse>>> listOfficialSources() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Fontes oficiais carregadas com sucesso.",
+                questionAutoValidationService.listOfficialSources()
+        ));
+    }
+
+    @PostMapping("/questions/{id}/auto-validate")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> autoValidateQuestion(@PathVariable Long id) {
+        questionAutoValidationService.autoValidate(id);
+        return ResponseEntity.ok(ApiResponse.success(
+                "Auto validacao concluida com sucesso.",
+                questionService.getReviewQuestion(id)
+        ));
+    }
+
+    @PostMapping("/questions/auto-validate-batch")
+    public ResponseEntity<ApiResponse<AutoValidationBatchResponse>> autoValidateBatch() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Auto validacao em lote concluida com sucesso.",
+                questionAutoValidationService.autoValidateBatch()
+        ));
+    }
+
+    @PostMapping("/questions/auto-publish-safe")
+    public ResponseEntity<ApiResponse<AutoValidationBatchResponse>> autoPublishSafe() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Publicacao automatica segura processada com sucesso.",
+                questionAutoValidationService.autoPublishSafe()
+        ));
+    }
+
+    @GetMapping("/questions/review/counters")
+    public ResponseEntity<ApiResponse<AutoValidationCountersResponse>> reviewCounters() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Contadores de revisao carregados com sucesso.",
+                questionAutoValidationService.counters()
         ));
     }
 }

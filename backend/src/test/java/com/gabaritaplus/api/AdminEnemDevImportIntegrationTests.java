@@ -181,7 +181,11 @@ class AdminEnemDevImportIntegrationTests {
     @Test
     @WithMockUser(roles = "ADMIN")
     void reviewStatusActionsKeepPublicationControlled() throws Exception {
-        Question saved = questionRepository.save(buildReviewQuestionWithAlternatives());
+        Question reviewQuestion = buildReviewQuestionWithAlternatives();
+        reviewQuestion.setStatement("Leia o texto e responda a pergunta.");
+        reviewQuestion.setSourceDay(1);
+        reviewQuestion.setSourceBookColor("AZUL");
+        Question saved = questionRepository.save(reviewQuestion);
 
         mockMvc.perform(patch("/admin/import/questions/review/{id}/status", saved.getId())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -219,6 +223,62 @@ class AdminEnemDevImportIntegrationTests {
         mockMvc.perform(post("/admin/import/questions/review/{id}/publish", saved.getId()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void autoValidationKeepsBrokenImageInReviewAndBlocksPublish() throws Exception {
+        Question saved = buildReviewQuestionWithAlternatives();
+        saved.setStatement("Texto com ![](https://enem.dev/broken-image.svg)");
+        saved.setValidatedAgainstOfficialSource(true);
+        saved = questionRepository.save(saved);
+
+        mockMvc.perform(post("/admin/import/questions/{id}/auto-validate", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.importStatus").value("NEEDS_REVIEW"))
+                .andExpect(jsonPath("$.data.autoValidationStatus").value("NEEDS_HUMAN_REVIEW"))
+                .andExpect(jsonPath("$.data.brokenImageDetected").value(true))
+                .andExpect(jsonPath("$.data.autoValidationWarnings").value(org.hamcrest.Matchers.containsString("ASSET_MISSING_OR_BROKEN")));
+
+        mockMvc.perform(post("/admin/import/questions/review/{id}/publish", saved.getId()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void autoValidationScoresSafeQuestionButAutoPublishFlagKeepsItUnpublished() throws Exception {
+        Question saved = buildReviewQuestionWithAlternatives();
+        saved.setValidatedAgainstOfficialSource(true);
+        saved.setSourceDay(1);
+        saved.setSourceBookColor("AZUL");
+        saved.setStatement("Leia o texto e responda a pergunta.");
+        saved = questionRepository.save(saved);
+
+        mockMvc.perform(post("/admin/import/questions/{id}/auto-validate", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.autoValidationScore").value(100))
+                .andExpect(jsonPath("$.data.autoValidationStatus").value("SAFE_TO_AUTO_VALIDATE"))
+                .andExpect(jsonPath("$.data.importStatus").value("AUTO_VALIDATED"));
+
+        mockMvc.perform(post("/admin/import/questions/auto-publish-safe"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.published").value(0));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void autoValidationDetectsSuspiciousTextAndMissingOfficialValidation() throws Exception {
+        Question saved = buildReviewQuestionWithAlternatives();
+        saved.setStatement("ТЕХТО II com conteudo suspeito.");
+        saved.setValidatedAgainstOfficialSource(false);
+        saved = questionRepository.save(saved);
+
+        mockMvc.perform(post("/admin/import/questions/{id}/auto-validate", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.importStatus").value("NEEDS_REVIEW"))
+                .andExpect(jsonPath("$.data.autoValidationStatus").value("NEEDS_HUMAN_REVIEW"))
+                .andExpect(jsonPath("$.data.suspiciousTextDetected").value(true))
+                .andExpect(jsonPath("$.data.validatedAgainstOfficialSource").value(false));
     }
 
     @Test

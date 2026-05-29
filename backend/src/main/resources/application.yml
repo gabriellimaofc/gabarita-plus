@@ -65,6 +65,8 @@ app:
     enabled: ${REDIS_ENABLED:false}
   seed:
     enabled: ${SEED_ENABLED:false}
+  import:
+    auto-publish-imported-questions: ${AUTO_PUBLISH_IMPORTED_QUESTIONS:false}
 
 logging:
   level:

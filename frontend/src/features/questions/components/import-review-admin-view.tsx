@@ -13,8 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  useAutoPublishSafe,
+  useAutoValidateBatch,
+  useAutoValidateQuestion,
   usePublishReviewQuestion,
   useReviewQuestion,
+  useReviewCounters,
   useReviewQuestions,
   useUpdateReviewStatus,
   useValidateOfficialSource,
@@ -22,6 +26,7 @@ import {
 import { useProtectedRoute } from "@/hooks/use-protected-route";
 import { useAuthStore } from "@/store/auth-store";
 import type {
+  AutoValidationStatus,
   QuestionImportStatus,
   ReviewOfficialValidationPayload,
   ReviewQuestionDetail,
@@ -36,8 +41,16 @@ const statusOptions: Array<{ value: QuestionImportStatus | ""; label: string }> 
   { value: "NEEDS_REVIEW", label: "Needs review" },
   { value: "DRAFT", label: "Draft" },
   { value: "VALIDATED", label: "Validated" },
+  { value: "AUTO_VALIDATED", label: "Auto validated" },
   { value: "INVALID", label: "Invalid" },
   { value: "PUBLISHED", label: "Published" },
+];
+
+const autoValidationOptions: Array<{ value: AutoValidationStatus | ""; label: string }> = [
+  { value: "", label: "Todos os status automaticos" },
+  { value: "SAFE_TO_AUTO_VALIDATE", label: "Seguras" },
+  { value: "NEEDS_HUMAN_REVIEW", label: "Revisao humana" },
+  { value: "AUTO_INVALID", label: "Auto invalidas" },
 ];
 
 const visualKeywords = [
@@ -66,6 +79,7 @@ function statusBadgeVariant(status: QuestionImportStatus) {
     case "PUBLISHED":
       return "success";
     case "VALIDATED":
+    case "AUTO_VALIDATED":
       return "secondary";
     case "INVALID":
       return "danger";
@@ -74,6 +88,21 @@ function statusBadgeVariant(status: QuestionImportStatus) {
     default:
       return "outline";
   }
+}
+
+function autoStatusBadgeVariant(status: AutoValidationStatus) {
+  switch (status) {
+    case "SAFE_TO_AUTO_VALIDATE":
+      return "success";
+    case "AUTO_INVALID":
+      return "danger";
+    default:
+      return "warning";
+  }
+}
+
+function splitMessages(value?: string | null) {
+  return value?.split(/\n+/).map((item) => item.trim()).filter(Boolean) ?? [];
 }
 
 function escapeHtml(value: string) {
@@ -155,13 +184,13 @@ function hasSuspiciousText(question: Pick<ReviewQuestionDetail, "title" | "state
 function buildAlerts(question: ReviewQuestionDetail) {
   const alerts: Array<{ tone: "danger" | "warning"; text: string }> = [];
 
-  if (hasBrokenImageReference(question)) {
+  if (hasBrokenImageReference(question) || question.brokenImageDetected) {
     alerts.push({
       tone: "danger",
       text: "Imagem quebrada detectada no enunciado ou nos assets. Esta questao nao pode ser publicada ainda.",
     });
   }
-  if (requiresVisualAsset(question)) {
+  if (requiresVisualAsset(question) || question.requiresAssetReview) {
     alerts.push({
       tone: "warning",
       text: "O texto menciona recurso visual, mas assetsCount esta zerado. Revisao manual obrigatoria.",
@@ -179,7 +208,7 @@ function buildAlerts(question: ReviewQuestionDetail) {
       text: "Questao ainda nao foi validada contra a fonte oficial do INEP.",
     });
   }
-  if (hasSuspiciousText(question)) {
+  if (hasSuspiciousText(question) || question.suspiciousTextDetected) {
     alerts.push({
       tone: "warning",
       text: "Texto possivelmente quebrado detectado. Revise caracteres, OCR e integridade do enunciado.",
@@ -194,7 +223,10 @@ function canPublish(question: ReviewQuestionDetail) {
     question.validatedAgainstOfficialSource &&
     question.alternativesCount === 5 &&
     Boolean(question.correctAlternative) &&
-    !hasBrokenImageReference(question)
+    !hasBrokenImageReference(question) &&
+    !question.brokenImageDetected &&
+    !question.suspiciousTextDetected &&
+    !question.requiresAssetReview
   );
 }
 
@@ -245,6 +277,13 @@ function ReviewCard({
           {item.validatedAgainstOfficialSource ? "Fonte validada" : "Pendente INEP"}
         </Badge>
       </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Badge variant={autoStatusBadgeVariant(item.autoValidationStatus)}>
+          Score {item.autoValidationScore}
+        </Badge>
+        <Badge variant="outline">{item.autoValidationStatus}</Badge>
+        {item.brokenImageDetected ? <Badge variant="danger">Imagem quebrada</Badge> : null}
+      </div>
       <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
         <p>Ano: {item.sourceYear ?? "-"}</p>
         <p>Questao: {item.sourceQuestionNumber ?? "-"}</p>
@@ -271,6 +310,7 @@ export function ImportReviewAdminView() {
     source: "ENEM_DEV",
     year: "",
     subject: "",
+    autoValidationStatus: "",
   });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [validationForm, setValidationForm] = useState<ReviewOfficialValidationPayload>({
@@ -281,10 +321,14 @@ export function ImportReviewAdminView() {
   });
 
   const reviewQuery = useReviewQuestions(filters);
+  const countersQuery = useReviewCounters();
   const detailQuery = useReviewQuestion(selectedId);
   const updateStatus = useUpdateReviewStatus();
   const validateOfficial = useValidateOfficialSource();
   const publishQuestion = usePublishReviewQuestion();
+  const autoValidateQuestion = useAutoValidateQuestion();
+  const autoValidateBatch = useAutoValidateBatch();
+  const autoPublishSafe = useAutoPublishSafe();
 
   const reviewItems = reviewQuery.data?.items ?? [];
 
@@ -316,6 +360,8 @@ export function ImportReviewAdminView() {
     () => (detailQuery.data ? buildAlerts(detailQuery.data) : []),
     [detailQuery.data],
   );
+  const autoWarnings = splitMessages(detailQuery.data?.autoValidationWarnings);
+  const autoErrors = splitMessages(detailQuery.data?.autoValidationErrors);
 
   const selectedIndex = reviewItems.findIndex((item) => item.id === selectedId);
   const previousItem = selectedIndex > 0 ? reviewItems[selectedIndex - 1] : null;
@@ -387,7 +433,7 @@ export function ImportReviewAdminView() {
             Filtros de revisao
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-4 pt-6 md:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <select
@@ -447,8 +493,46 @@ export function ImportReviewAdminView() {
               placeholder="Linguagens"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="autoValidationStatus">Auto validacao</Label>
+            <select
+              id="autoValidationStatus"
+              className="flex h-11 w-full rounded-2xl border border-border bg-background/70 px-4 py-2 text-sm"
+              value={filters.autoValidationStatus ?? ""}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  page: 0,
+                  autoValidationStatus: event.target.value as AutoValidationStatus | "",
+                }))
+              }
+            >
+              {autoValidationOptions.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-3 md:grid-cols-5">
+        {[
+          ["Seguras", countersQuery.data?.safe ?? 0],
+          ["Em revisao", countersQuery.data?.needsReview ?? 0],
+          ["Invalidas", countersQuery.data?.invalid ?? 0],
+          ["Imagem quebrada", countersQuery.data?.brokenImages ?? 0],
+          ["Pendentes INEP", countersQuery.data?.pendingInep ?? 0],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              {label}
+            </p>
+            <p className="mt-2 text-2xl font-bold">{value}</p>
+          </div>
+        ))}
+      </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card className="overflow-hidden xl:sticky xl:top-24">
@@ -629,6 +713,13 @@ export function ImportReviewAdminView() {
                           Validar e continuar
                         </Button>
                         <Button
+                          variant="outline"
+                          onClick={() => autoValidateQuestion.mutate(selectedQuestion.id)}
+                          disabled={autoValidateQuestion.isPending}
+                        >
+                          Auto validar
+                        </Button>
+                        <Button
                           onClick={() => {
                             if (!window.confirm("Publicar esta questao para os alunos?")) {
                               return;
@@ -672,6 +763,23 @@ export function ImportReviewAdminView() {
                     </div>
                   )}
 
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => autoValidateBatch.mutate()}
+                      disabled={autoValidateBatch.isPending}
+                    >
+                      Auto validar lote
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => autoPublishSafe.mutate()}
+                      disabled={autoPublishSafe.isPending}
+                    >
+                      Publicar seguras
+                    </Button>
+                  </div>
+
                   <div className="grid min-w-0 items-start gap-6 2xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
                     <div className="min-w-0 space-y-6">
                       <Card className="min-w-0 border-border/70 bg-background/60">
@@ -701,6 +809,15 @@ export function ImportReviewAdminView() {
                             <Badge variant="outline">
                               Alternatives: {selectedQuestion.alternativesCount}
                             </Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant={autoStatusBadgeVariant(selectedQuestion.autoValidationStatus)}>
+                              Auto score {selectedQuestion.autoValidationScore}
+                            </Badge>
+                            <Badge variant="outline">{selectedQuestion.autoValidationStatus}</Badge>
+                            {selectedQuestion.brokenImageDetected ? <Badge variant="danger">Imagem quebrada</Badge> : null}
+                            {selectedQuestion.suspiciousTextDetected ? <Badge variant="warning">Texto suspeito</Badge> : null}
+                            {selectedQuestion.requiresAssetReview ? <Badge variant="warning">Asset pendente</Badge> : null}
                           </div>
                           <div className="space-y-4">
                             {selectedQuestion.alternatives.map((alternative) => (
@@ -774,8 +891,32 @@ export function ImportReviewAdminView() {
                                 <p className="break-all">statementHash: {selectedQuestion.statementHash}</p>
                                 <p>alternativesCount: {selectedQuestion.alternativesCount}</p>
                                 <p>assetsCount: {selectedQuestion.assetsCount}</p>
+                                <p>autoValidationScore: {selectedQuestion.autoValidationScore}</p>
+                                <p>autoValidationStatus: {selectedQuestion.autoValidationStatus}</p>
+                                <p>autoValidatedAt: {selectedQuestion.autoValidatedAt ?? "-"}</p>
                               </div>
                             </div>
+                            {(autoWarnings.length || autoErrors.length) ? (
+                              <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Auto validacao</p>
+                                {autoErrors.length ? (
+                                  <div className="mt-3 space-y-1">
+                                    <p className="text-sm font-semibold text-rose-600">Errors</p>
+                                    {autoErrors.map((item) => (
+                                      <p key={item} className="break-words text-muted-foreground">{item}</p>
+                                    ))}
+                                  </div>
+                                ) : null}
+                                {autoWarnings.length ? (
+                                  <div className="mt-3 space-y-1">
+                                    <p className="text-sm font-semibold text-amber-600">Warnings</p>
+                                    {autoWarnings.map((item) => (
+                                      <p key={item} className="break-words text-muted-foreground">{item}</p>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
                           </div>
                       </CardContent>
                       </Card>

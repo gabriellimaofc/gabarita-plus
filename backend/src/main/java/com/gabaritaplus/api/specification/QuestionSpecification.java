@@ -2,6 +2,7 @@ package com.gabaritaplus.api.specification;
 
 import com.gabaritaplus.api.dto.question.QuestionFilterRequest;
 import com.gabaritaplus.api.entity.Question;
+import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -35,12 +36,14 @@ public final class QuestionSpecification {
             Collection<QuestionImportStatus> statuses,
             String source,
             Integer year,
-            String subject
+            String subject,
+            AutoValidationStatus autoValidationStatus
     ) {
         return Specification.where(inValues("importStatus", statuses))
                 .and(equalIgnoreCase("source", source))
                 .and(equalValue("sourceYear", year))
-                .and(equalIgnoreCase("subject", subject));
+                .and(equalIgnoreCase("subject", subject))
+                .and(equalValue("autoValidationStatus", autoValidationStatus));
     }
 
     private static Specification<Question> likeIgnoreCase(String field, String value) {

@@ -1,6 +1,7 @@
 package com.gabaritaplus.api.entity;
 
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
+import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -140,6 +141,31 @@ public class Question extends BaseEntity {
     @Column(name = "import_status", nullable = false, length = 30)
     private QuestionImportStatus importStatus = QuestionImportStatus.PUBLISHED;
 
+    @Column(name = "auto_validation_score", nullable = false)
+    private Integer autoValidationScore = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auto_validation_status", nullable = false, length = 40)
+    private AutoValidationStatus autoValidationStatus = AutoValidationStatus.NEEDS_HUMAN_REVIEW;
+
+    @Column(name = "auto_validation_errors", columnDefinition = "TEXT")
+    private String autoValidationErrors;
+
+    @Column(name = "auto_validation_warnings", columnDefinition = "TEXT")
+    private String autoValidationWarnings;
+
+    @Column(name = "auto_validated_at")
+    private OffsetDateTime autoValidatedAt;
+
+    @Column(name = "broken_image_detected", nullable = false)
+    private Boolean brokenImageDetected = false;
+
+    @Column(name = "suspicious_text_detected", nullable = false)
+    private Boolean suspiciousTextDetected = false;
+
+    @Column(name = "requires_asset_review", nullable = false)
+    private Boolean requiresAssetReview = false;
+
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Alternative> alternatives = new ArrayList<>();
 
@@ -169,6 +195,21 @@ public class Question extends BaseEntity {
         }
         if (validatedAgainstOfficialSource == null) {
             validatedAgainstOfficialSource = false;
+        }
+        if (autoValidationScore == null) {
+            autoValidationScore = 0;
+        }
+        if (autoValidationStatus == null) {
+            autoValidationStatus = AutoValidationStatus.NEEDS_HUMAN_REVIEW;
+        }
+        if (brokenImageDetected == null) {
+            brokenImageDetected = false;
+        }
+        if (suspiciousTextDetected == null) {
+            suspiciousTextDetected = false;
+        }
+        if (requiresAssetReview == null) {
+            requiresAssetReview = false;
         }
         if (importedAt == null) {
             importedAt = OffsetDateTime.now();

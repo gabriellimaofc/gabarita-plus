@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.gabaritaplus.api.dto.question.AlternativeResponse;
 import com.gabaritaplus.api.dto.question.QuestionAssetResponse;
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
+import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 
 import java.time.OffsetDateTime;
@@ -49,6 +50,14 @@ public record AdminImportedQuestionReviewDetailResponse(
         String correctAlternative,
         long alternativesCount,
         long assetsCount,
+        Integer autoValidationScore,
+        AutoValidationStatus autoValidationStatus,
+        String autoValidationErrors,
+        String autoValidationWarnings,
+        @JsonInclude(JsonInclude.Include.NON_NULL) OffsetDateTime autoValidatedAt,
+        Boolean brokenImageDetected,
+        Boolean suspiciousTextDetected,
+        Boolean requiresAssetReview,
         List<QuestionAssetResponse> assets,
         List<AlternativeResponse> alternatives,
         OffsetDateTime createdAt,

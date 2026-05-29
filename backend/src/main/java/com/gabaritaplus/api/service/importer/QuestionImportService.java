@@ -56,6 +56,7 @@ public class QuestionImportService {
     private final ImportBatchRepository importBatchRepository;
     private final QuestionMapper questionMapper;
     private final QuestionImportSupport questionImportSupport;
+    private final QuestionAutoValidationService questionAutoValidationService;
 
     @Transactional(readOnly = true)
     public ImportReportResponse dryRun(ImportQuestionsPayload payload) {
@@ -144,6 +145,7 @@ public class QuestionImportService {
                 question.setImportBatch(batch);
                 question.setStatementHash(statementHash);
                 question.setImportedAt(OffsetDateTime.now());
+                questionAutoValidationService.applyAutoValidation(question);
                 questionRepository.save(question);
                 imported++;
             }

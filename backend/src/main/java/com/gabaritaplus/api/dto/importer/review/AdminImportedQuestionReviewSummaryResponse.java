@@ -1,6 +1,7 @@
 package com.gabaritaplus.api.dto.importer.review;
 
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
+import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 
 import java.time.OffsetDateTime;
@@ -22,6 +23,13 @@ public record AdminImportedQuestionReviewSummaryResponse(
         OffsetDateTime createdAt,
         OffsetDateTime importedAt,
         long alternativesCount,
-        long assetsCount
+        long assetsCount,
+        Integer autoValidationScore,
+        AutoValidationStatus autoValidationStatus,
+        String autoValidationWarnings,
+        String autoValidationErrors,
+        Boolean brokenImageDetected,
+        Boolean suspiciousTextDetected,
+        Boolean requiresAssetReview
 ) {
 }
