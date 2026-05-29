@@ -1,7 +1,8 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Circle, Heart, Timer } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Circle, Heart, Tags, Timer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
@@ -140,9 +141,10 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
   const revealedCorrectAlternative =
     activeAnswer?.correctAlternative ?? question.correctAlternative ?? null;
   const hasAnsweredCurrentQuestion = Boolean(activeAnswer);
+  const hasClassifiedTopic = question.topic && question.topic.toLowerCase() !== "a classificar";
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <QuestionNavigator
         currentIndex={currentIndex}
         totalCount={ids.length}
@@ -157,13 +159,21 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
         label={source === "error-notebook" ? "Revisao guiada" : "Fluxo de questoes"}
       />
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 <Badge>{question.subject}</Badge>
-                <Badge variant="secondary">{question.topic}</Badge>
+                {hasClassifiedTopic ? (
+                  <Badge variant="secondary">{question.topic}</Badge>
+                ) : (
+                  <Badge variant="outline">
+                    <Tags className="mr-1 size-3.5" />
+                    Classificacao pendente
+                  </Badge>
+                )}
+                {question.subtopic ? <Badge variant="outline">{question.subtopic}</Badge> : null}
                 <Badge variant="outline">
                   <Timer className="mr-1 size-3.5" />
                   Ritmo monitorado
@@ -184,14 +194,16 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          <QuestionContent
-            statement={question.statement}
-            statementHtml={question.statementHtml}
-            assets={question.assets}
-            sourceLabel="Recursos oficiais da questao"
-          />
+          <section className="rounded-[32px] border border-border/70 bg-background/70 p-5 shadow-sm sm:p-7">
+            <QuestionContent
+              statement={question.statement}
+              statementHtml={question.statementHtml}
+              assets={question.assets}
+              sourceLabel="Recursos oficiais da questao"
+            />
+          </section>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {question.alternatives.map((alternative) => {
               const isSelected = selectedAlternative === alternative.letter;
               const isCorrect =
@@ -203,7 +215,7 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
                   key={alternative.id}
                   type="button"
                   className={cn(
-                    "flex w-full items-start gap-4 rounded-[24px] border px-5 py-4 text-left transition",
+                    "flex w-full items-start gap-4 rounded-[26px] border px-5 py-5 text-left transition sm:px-6",
                     isSelected
                       ? "border-primary bg-primary/5"
                       : "border-border bg-background/60 hover:bg-accent",
@@ -225,8 +237,10 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
                       <Circle className={cn("size-5", isSelected && "text-primary")} />
                     )}
                   </div>
-                  <div>
-                    <p className="font-semibold">{alternative.letter}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold uppercase tracking-[0.16em] text-foreground">
+                      Alternativa {alternative.letter}
+                    </p>
                     <div className="mt-1">
                       <AlternativeContent alternative={alternative} />
                     </div>
@@ -274,14 +288,28 @@ export function QuestionDetailView({ questionId }: { questionId: number }) {
         </CardContent>
       </Card>
 
-      <QuestionNavigator
-        currentIndex={currentIndex}
-        totalCount={ids.length}
-        backHref={returnTo}
-        previousHref={previousHref}
-        nextHref={nextHref}
-        backLabel="Voltar para lista"
-      />
+      <div className="flex flex-col gap-3 rounded-[28px] border border-border/70 bg-background/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {nextHref
+            ? "Quando terminar esta questao, voce pode seguir para a proxima do bloco."
+            : "Voce chegou ao final deste bloco de questoes."}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link href={returnTo}>
+            <Button variant="outline">Voltar para lista</Button>
+          </Link>
+          {previousHref ? (
+            <Link href={previousHref}>
+              <Button variant="outline">Questao anterior</Button>
+            </Link>
+          ) : null}
+          {nextHref ? (
+            <Link href={nextHref}>
+              <Button>Proxima questao</Button>
+            </Link>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { CheckCircle2, CircleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { QuestionRichText } from "@/features/questions/components/question-content";
 import { cn } from "@/lib/utils";
 
 export function AnswerFeedback({
@@ -57,7 +58,17 @@ export function AnswerFeedback({
       </div>
 
       <div className="mt-4 rounded-2xl bg-background/75 p-4 text-sm leading-7 text-muted-foreground">
-        {explanation ?? "A explicacao detalhada ainda nao foi informada para esta questao."}
+        {explanation ? (
+          <QuestionRichText html={null} fallbackText={explanation} />
+        ) : (
+          <div className="space-y-2">
+            <p className="font-medium text-foreground">Explicacao revisada ainda nao cadastrada.</p>
+            <p>
+              Por enquanto, registramos sua resposta e mostramos o gabarito oficial. A equipe pode adicionar uma
+              resolucao comentada depois da revisao pedagogica.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
