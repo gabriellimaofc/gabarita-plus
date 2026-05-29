@@ -48,6 +48,7 @@ public class QuestionAutoValidationService {
     private final QuestionRepository questionRepository;
     private final OfficialExamSourceRepository officialExamSourceRepository;
     private final ObjectMapper objectMapper;
+    private final OfficialPdfAssetRecoveryService officialPdfAssetRecoveryService;
 
     @Value("${app.import.auto-publish-imported-questions:false}")
     private boolean autoPublishImportedQuestions;
@@ -361,7 +362,7 @@ public class QuestionAutoValidationService {
         applyAutoValidation(question);
         appendWarnings(question, warnings);
         appendErrors(question, errors);
-        return toOfficialItem(question, false, previousValidated, previousScore, warnings, errors);
+        return toOfficialItem(question, false, 0, previousValidated, previousScore, warnings, errors);
     }
 
     private OfficialValidationItemResponse recoverQuestionAssets(Question question) {
@@ -375,25 +376,32 @@ public class QuestionAutoValidationService {
         warnings.addAll(match.warnings());
         errors.addAll(match.errors());
         boolean assetRecovered = false;
+        int recoveredAssets = 0;
 
         if (source.isEmpty()) {
             if (!errors.contains("AMBIGUOUS_OFFICIAL_SOURCE")) {
                 warnings.add("OFFICIAL_SOURCE_NOT_FOUND");
-                warnings.add("PDF_NOT_FOUND");
+                errors.add("OFFICIAL_PDF_NOT_FOUND");
             }
         } else {
             attachOfficialSource(question, source.get());
             if (source.get().getPdfUrl() == null || source.get().getPdfUrl().isBlank()) {
-                warnings.add("PDF_NOT_FOUND");
+                errors.add("OFFICIAL_PDF_NOT_FOUND");
             } else if (hasBrokenImageReference(question) || (mentionsVisualAsset(question) && question.getAssets().isEmpty())) {
-                warnings.add("ASSET_RECOVERY_FAILED");
+                OfficialPdfAssetRecoveryResult result = officialPdfAssetRecoveryService.recover(question, source.get());
+                warnings.addAll(result.warnings());
+                errors.addAll(result.errors());
+                recoveredAssets = result.recoveredAssets();
+                assetRecovered = recoveredAssets > 0;
+            } else {
+                warnings.add("ASSET_RECOVERY_NOT_REQUIRED");
             }
         }
 
         applyAutoValidation(question);
         appendWarnings(question, warnings);
         appendErrors(question, errors);
-        return toOfficialItem(question, assetRecovered, previousValidated, previousScore, warnings, errors);
+        return toOfficialItem(question, assetRecovered, recoveredAssets, previousValidated, previousScore, warnings, errors);
     }
 
     private List<Question> reviewCandidates() {
@@ -558,6 +566,7 @@ public class QuestionAutoValidationService {
     private OfficialValidationItemResponse toOfficialItem(
             Question question,
             boolean assetRecovered,
+            int recoveredAssets,
             boolean previousValidated,
             Integer previousScore,
             List<String> warnings,
@@ -580,6 +589,11 @@ public class QuestionAutoValidationService {
                 question.getAutoValidationStatus(),
                 Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource()),
                 assetRecovered,
+                recoveredAssets,
+                question.getAutoValidationScore(),
+                question.getAutoValidationStatus(),
+                Boolean.TRUE.equals(question.getRequiresAssetReview()),
+                Boolean.TRUE.equals(question.getBrokenImageDetected()),
                 previousValidated != Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource())
                         || !java.util.Objects.equals(previousScore, question.getAutoValidationScore()),
                 List.copyOf(mergedWarnings.stream()
@@ -605,9 +619,10 @@ public class QuestionAutoValidationService {
                 (int) items.stream().filter(item -> item.importStatus() == QuestionImportStatus.NEEDS_REVIEW).count(),
                 (int) items.stream().filter(item -> item.importStatus() == QuestionImportStatus.INVALID).count(),
                 (int) items.stream().filter(item -> item.warnings().contains("ASSET_MISSING_OR_BROKEN")).count(),
-                (int) items.stream().filter(item -> item.warnings().contains("ASSET_RECOVERY_FAILED")).count(),
+                (int) items.stream().filter(item -> item.warnings().contains("ASSET_RECOVERY_FAILED")
+                        || item.warnings().contains("ASSET_RECOVERY_NEEDS_REVIEW")).count(),
                 (int) items.stream().filter(item -> !item.validatedAgainstOfficialSource()).count(),
-                (int) items.stream().filter(OfficialValidationItemResponse::assetRecovered).count(),
+                items.stream().mapToInt(OfficialValidationItemResponse::recoveredAssets).sum(),
                 (int) items.stream().filter(item -> item.warnings().contains("ASSET_RECOVERY_FAILED")).count(),
                 items
         );

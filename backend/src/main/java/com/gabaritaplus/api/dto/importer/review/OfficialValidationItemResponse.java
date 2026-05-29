@@ -17,6 +17,11 @@ public record OfficialValidationItemResponse(
         AutoValidationStatus autoValidationStatus,
         boolean validatedAgainstOfficialSource,
         boolean assetRecovered,
+        int recoveredAssets,
+        Integer newAutoValidationScore,
+        AutoValidationStatus newAutoValidationStatus,
+        boolean requiresAssetReview,
+        boolean brokenImageDetected,
         boolean updated,
         List<String> warnings,
         List<String> errors

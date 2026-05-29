@@ -219,6 +219,11 @@ export interface OfficialValidationItem {
   autoValidationStatus: AutoValidationStatus;
   validatedAgainstOfficialSource: boolean;
   assetRecovered: boolean;
+  recoveredAssets: number;
+  newAutoValidationScore: number | null;
+  newAutoValidationStatus: AutoValidationStatus | null;
+  requiresAssetReview: boolean;
+  brokenImageDetected: boolean;
   updated: boolean;
   warnings: string[];
   errors: string[];

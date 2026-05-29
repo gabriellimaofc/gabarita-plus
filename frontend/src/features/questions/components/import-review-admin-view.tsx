@@ -683,7 +683,7 @@ export function ImportReviewAdminView() {
             <CardTitle>Relatório da validação INEP</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
-            <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+            <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-9">
               {[
                 ["Processadas", officialValidationReport.totalProcessed],
                 ["Validadas", officialValidationReport.validated],
@@ -693,6 +693,7 @@ export function ImportReviewAdminView() {
                 ["Gabarito ausente", officialValidationReport.answerKeyMissing],
                 ["Gabarito divergente", officialValidationReport.answerKeyMismatch],
                 ["Pendentes INEP", officialValidationReport.pendingInep],
+                ["Assets recuperados", officialValidationReport.assetRecovered],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-[18px] border border-border/70 bg-background/70 p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
@@ -717,6 +718,11 @@ export function ImportReviewAdminView() {
                     Score: {item.previousScore ?? "-"} {"->"} {item.newScore ?? "-"} | Validação:{" "}
                     {String(item.previousValidatedAgainstOfficialSource)} {"->"} {String(item.newValidatedAgainstOfficialSource)}
                   </p>
+                  {item.recoveredAssets > 0 ? (
+                    <p className="mt-2 text-xs font-medium text-emerald-600">
+                      {item.recoveredAssets} asset(s) recuperado(s) do PDF oficial do INEP.
+                    </p>
+                  ) : null}
                   {item.warnings.length ? (
                     <p className="mt-2 break-words text-xs text-amber-600">Warnings: {item.warnings.join(" | ")}</p>
                   ) : null}
