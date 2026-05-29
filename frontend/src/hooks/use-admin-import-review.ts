@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api-error";
 import { adminImportService } from "@/services/admin-import.service";
 import type {
+  OfficialExamSourcePayload,
   ReviewOfficialValidationPayload,
   ReviewQuestionFilters,
   ReviewQuestionStatusPayload,
@@ -30,6 +31,27 @@ export function useReviewCounters() {
   return useQuery({
     queryKey: ["admin-review-counters"],
     queryFn: () => adminImportService.getReviewCounters(),
+  });
+}
+
+export function useOfficialSources() {
+  return useQuery({
+    queryKey: ["admin-official-sources"],
+    queryFn: () => adminImportService.listOfficialSources(),
+  });
+}
+
+export function useCreateOfficialSource() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: OfficialExamSourcePayload) => adminImportService.createOfficialSource(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-official-sources"] });
+      toast.success("Fonte oficial cadastrada.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel cadastrar a fonte oficial.")),
   });
 }
 
@@ -133,5 +155,69 @@ export function useAutoPublishSafe() {
     },
     onError: (error) =>
       toast.error(getErrorMessage(error, "Nao foi possivel publicar questoes seguras.")),
+  });
+}
+
+export function useRecoverAssets() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => adminImportService.recoverAssets(id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
+      toast.success(`Recuperacao processada: ${result.assetRecovered} assets recuperados.`);
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel recuperar assets com INEP.")),
+  });
+}
+
+export function useRecoverAssetsBatch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => adminImportService.recoverAssetsBatch(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
+      toast.success(`Recuperacao em lote processada: ${result.processed} questoes.`);
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel recuperar assets do lote.")),
+  });
+}
+
+export function useValidateAgainstOfficialSource() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => adminImportService.validateAgainstOfficialSource(id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
+      toast.success(`Validacao INEP processada: ${result.validated} validadas.`);
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel validar com INEP.")),
+  });
+}
+
+export function useValidateAgainstOfficialSourceBatch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => adminImportService.validateAgainstOfficialSourceBatch(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-question"] });
+      toast.success(`Validacao INEP em lote: ${result.processed} questoes.`);
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Nao foi possivel validar o lote com INEP.")),
   });
 }

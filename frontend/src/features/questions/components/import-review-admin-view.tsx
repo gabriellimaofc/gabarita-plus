@@ -16,17 +16,24 @@ import {
   useAutoPublishSafe,
   useAutoValidateBatch,
   useAutoValidateQuestion,
+  useCreateOfficialSource,
+  useOfficialSources,
   usePublishReviewQuestion,
+  useRecoverAssets,
+  useRecoverAssetsBatch,
   useReviewQuestion,
   useReviewCounters,
   useReviewQuestions,
   useUpdateReviewStatus,
+  useValidateAgainstOfficialSource,
+  useValidateAgainstOfficialSourceBatch,
   useValidateOfficialSource,
 } from "@/hooks/use-admin-import-review";
 import { useProtectedRoute } from "@/hooks/use-protected-route";
 import { useAuthStore } from "@/store/auth-store";
 import type {
   AutoValidationStatus,
+  OfficialExamSourcePayload,
   QuestionImportStatus,
   ReviewOfficialValidationPayload,
   ReviewQuestionDetail,
@@ -319,9 +326,21 @@ export function ImportReviewAdminView() {
     officialAnswerKeyUrl: "",
     officialPage: null,
   });
+  const [officialSourceForm, setOfficialSourceForm] = useState<OfficialExamSourcePayload>({
+    exam: "ENEM",
+    year: 2023,
+    day: 1,
+    bookColor: "",
+    pdfUrl: "",
+    answerKeyUrl: "",
+    sourceUrl: "",
+    localPdfPath: "",
+    answerKeyMapJson: "",
+  });
 
   const reviewQuery = useReviewQuestions(filters);
   const countersQuery = useReviewCounters();
+  const officialSourcesQuery = useOfficialSources();
   const detailQuery = useReviewQuestion(selectedId);
   const updateStatus = useUpdateReviewStatus();
   const validateOfficial = useValidateOfficialSource();
@@ -329,6 +348,11 @@ export function ImportReviewAdminView() {
   const autoValidateQuestion = useAutoValidateQuestion();
   const autoValidateBatch = useAutoValidateBatch();
   const autoPublishSafe = useAutoPublishSafe();
+  const createOfficialSource = useCreateOfficialSource();
+  const recoverAssets = useRecoverAssets();
+  const recoverAssetsBatch = useRecoverAssetsBatch();
+  const validateWithInep = useValidateAgainstOfficialSource();
+  const validateWithInepBatch = useValidateAgainstOfficialSourceBatch();
 
   const reviewItems = reviewQuery.data?.items ?? [];
 
@@ -416,6 +440,16 @@ export function ImportReviewAdminView() {
       payload: validationForm,
     });
     await moveToNextQuestion(nextItem?.id);
+  }
+
+  async function handleCreateOfficialSource() {
+    await createOfficialSource.mutateAsync({
+      ...officialSourceForm,
+      bookColor: officialSourceForm.bookColor?.trim() || null,
+      answerKeyUrl: officialSourceForm.answerKeyUrl?.trim() || null,
+      localPdfPath: officialSourceForm.localPdfPath?.trim() || null,
+      answerKeyMapJson: officialSourceForm.answerKeyMapJson?.trim() || null,
+    });
   }
 
   return (
@@ -533,6 +567,78 @@ export function ImportReviewAdminView() {
           </div>
         ))}
       </div>
+
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-border/70">
+          <CardTitle>Fontes oficiais INEP cadastradas</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6 pt-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+          <div className="space-y-3">
+            {officialSourcesQuery.data?.length ? (
+              officialSourcesQuery.data.slice(0, 5).map((source) => (
+                <div key={source.id} className="rounded-[20px] border border-border/70 bg-background/70 p-4 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{source.exam} {source.year}</Badge>
+                    <Badge variant="outline">Dia {source.day ?? "-"}</Badge>
+                    <Badge variant="outline">{source.bookColor || "cor livre"}</Badge>
+                    {source.answerKeyMapJson ? <Badge variant="success">Gabarito estruturado</Badge> : <Badge variant="warning">Sem mapa de gabarito</Badge>}
+                  </div>
+                  <p className="mt-3 break-all text-muted-foreground">PDF: {source.pdfUrl}</p>
+                  <p className="mt-1 break-all text-muted-foreground">Gabarito: {source.answerKeyUrl ?? "-"}</p>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-[20px] border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+                Nenhuma fonte oficial cadastrada ainda. Cadastre a prova/gabarito do INEP antes de validar automaticamente.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-3 rounded-[22px] border border-border/70 bg-background/70 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Exam</Label>
+                <Input value={officialSourceForm.exam} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, exam: event.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Ano</Label>
+                <Input type="number" value={officialSourceForm.year} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, year: Number(event.target.value) }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Dia</Label>
+                <Input type="number" value={officialSourceForm.day ?? ""} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, day: event.target.value ? Number(event.target.value) : null }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Caderno/cor</Label>
+                <Input value={officialSourceForm.bookColor ?? ""} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, bookColor: event.target.value }))} placeholder="AZUL" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>pdfUrl oficial</Label>
+              <Input value={officialSourceForm.pdfUrl} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, pdfUrl: event.target.value }))} placeholder="https://www.gov.br/inep/..." />
+            </div>
+            <div className="space-y-2">
+              <Label>answerKeyUrl oficial</Label>
+              <Input value={officialSourceForm.answerKeyUrl ?? ""} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, answerKeyUrl: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>sourceUrl oficial</Label>
+              <Input value={officialSourceForm.sourceUrl} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, sourceUrl: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Mapa de gabarito JSON opcional</Label>
+              <Textarea
+                value={officialSourceForm.answerKeyMapJson ?? ""}
+                onChange={(event) => setOfficialSourceForm((current) => ({ ...current, answerKeyMapJson: event.target.value }))}
+                placeholder='{"2":"A","3":"B"}'
+              />
+            </div>
+            <Button className="w-full" onClick={() => void handleCreateOfficialSource()} disabled={createOfficialSource.isPending}>
+              Cadastrar fonte oficial
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card className="overflow-hidden xl:sticky xl:top-24">
@@ -720,6 +826,20 @@ export function ImportReviewAdminView() {
                           Auto validar
                         </Button>
                         <Button
+                          variant="outline"
+                          onClick={() => validateWithInep.mutate(selectedQuestion.id)}
+                          disabled={validateWithInep.isPending}
+                        >
+                          Validar com INEP
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => recoverAssets.mutate(selectedQuestion.id)}
+                          disabled={recoverAssets.isPending}
+                        >
+                          Recuperar assets
+                        </Button>
+                        <Button
                           onClick={() => {
                             if (!window.confirm("Publicar esta questao para os alunos?")) {
                               return;
@@ -770,6 +890,20 @@ export function ImportReviewAdminView() {
                       disabled={autoValidateBatch.isPending}
                     >
                       Auto validar lote
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => validateWithInepBatch.mutate()}
+                      disabled={validateWithInepBatch.isPending}
+                    >
+                      Validar lote com INEP
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => recoverAssetsBatch.mutate()}
+                      disabled={recoverAssetsBatch.isPending}
+                    >
+                      Recuperar assets do lote
                     </Button>
                     <Button
                       variant="outline"

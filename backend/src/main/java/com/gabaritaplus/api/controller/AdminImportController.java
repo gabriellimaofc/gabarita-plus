@@ -10,6 +10,7 @@ import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewDetai
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse;
 import com.gabaritaplus.api.dto.importer.review.AutoValidationBatchResponse;
 import com.gabaritaplus.api.dto.importer.review.AutoValidationCountersResponse;
+import com.gabaritaplus.api.dto.importer.review.OfficialValidationReportResponse;
 import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionStatusRequest;
 import com.gabaritaplus.api.dto.importer.review.ValidateOfficialSourceRequest;
 import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
@@ -195,6 +196,38 @@ public class AdminImportController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Publicacao automatica segura processada com sucesso.",
                 questionAutoValidationService.autoPublishSafe()
+        ));
+    }
+
+    @PostMapping("/questions/{id}/recover-assets")
+    public ResponseEntity<ApiResponse<OfficialValidationReportResponse>> recoverAssets(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Recuperacao de assets contra fonte oficial processada com seguranca.",
+                questionAutoValidationService.recoverAssets(id)
+        ));
+    }
+
+    @PostMapping("/questions/recover-assets-batch")
+    public ResponseEntity<ApiResponse<OfficialValidationReportResponse>> recoverAssetsBatch() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Recuperacao de assets em lote processada com seguranca.",
+                questionAutoValidationService.recoverAssetsBatch()
+        ));
+    }
+
+    @PostMapping("/questions/{id}/validate-against-official-source")
+    public ResponseEntity<ApiResponse<OfficialValidationReportResponse>> validateAgainstOfficialSource(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Validacao automatica contra fonte oficial processada com seguranca.",
+                questionAutoValidationService.validateAgainstOfficialSource(id)
+        ));
+    }
+
+    @PostMapping("/questions/validate-against-official-source-batch")
+    public ResponseEntity<ApiResponse<OfficialValidationReportResponse>> validateAgainstOfficialSourceBatch() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Validacao automatica em lote contra fonte oficial processada com seguranca.",
+                questionAutoValidationService.validateAgainstOfficialSourceBatch()
         ));
     }
 

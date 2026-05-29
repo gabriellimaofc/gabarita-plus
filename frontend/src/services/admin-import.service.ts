@@ -4,6 +4,9 @@ import type { ApiResponse, PageMetadata } from "@/types/api";
 import type {
   AutoValidationBatchResult,
   AutoValidationCounters,
+  OfficialExamSource,
+  OfficialExamSourcePayload,
+  OfficialValidationReport,
   ReviewOfficialValidationPayload,
   ReviewQuestionDetail,
   ReviewQuestionFilters,
@@ -104,6 +107,49 @@ export const adminImportService = {
   async getReviewCounters() {
     const response = await apiClient.get<ApiResponse<AutoValidationCounters>>(
       "/admin/import/questions/review/counters",
+    );
+    return unwrapResponse(response);
+  },
+
+  async listOfficialSources() {
+    const response = await apiClient.get<ApiResponse<OfficialExamSource[]>>(
+      "/admin/import/official-sources",
+    );
+    return unwrapResponse(response);
+  },
+
+  async createOfficialSource(payload: OfficialExamSourcePayload) {
+    const response = await apiClient.post<ApiResponse<OfficialExamSource>>(
+      "/admin/import/official-sources",
+      payload,
+    );
+    return unwrapResponse(response);
+  },
+
+  async recoverAssets(id: number) {
+    const response = await apiClient.post<ApiResponse<OfficialValidationReport>>(
+      `/admin/import/questions/${id}/recover-assets`,
+    );
+    return unwrapResponse(response);
+  },
+
+  async recoverAssetsBatch() {
+    const response = await apiClient.post<ApiResponse<OfficialValidationReport>>(
+      "/admin/import/questions/recover-assets-batch",
+    );
+    return unwrapResponse(response);
+  },
+
+  async validateAgainstOfficialSource(id: number) {
+    const response = await apiClient.post<ApiResponse<OfficialValidationReport>>(
+      `/admin/import/questions/${id}/validate-against-official-source`,
+    );
+    return unwrapResponse(response);
+  },
+
+  async validateAgainstOfficialSourceBatch() {
+    const response = await apiClient.post<ApiResponse<OfficialValidationReport>>(
+      "/admin/import/questions/validate-against-official-source-batch",
     );
     return unwrapResponse(response);
   },

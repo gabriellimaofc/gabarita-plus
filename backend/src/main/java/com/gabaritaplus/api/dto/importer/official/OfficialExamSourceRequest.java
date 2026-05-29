@@ -11,6 +11,7 @@ public record OfficialExamSourceRequest(
         @NotBlank String pdfUrl,
         String answerKeyUrl,
         @NotBlank String sourceUrl,
-        String localPdfPath
+        String localPdfPath,
+        String answerKeyMapJson
 ) {
 }

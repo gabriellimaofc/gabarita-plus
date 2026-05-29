@@ -181,6 +181,56 @@ export interface AutoValidationBatchResult {
   published: number;
 }
 
+export interface OfficialExamSource {
+  id: number;
+  exam: string;
+  year: number;
+  day: number | null;
+  bookColor: string | null;
+  pdfUrl: string;
+  answerKeyUrl: string | null;
+  sourceUrl: string;
+  localPdfPath: string | null;
+  answerKeyMapJson: string | null;
+  createdAt: string;
+}
+
+export interface OfficialExamSourcePayload {
+  exam: string;
+  year: number;
+  day?: number | null;
+  bookColor?: string | null;
+  pdfUrl: string;
+  answerKeyUrl?: string | null;
+  sourceUrl: string;
+  localPdfPath?: string | null;
+  answerKeyMapJson?: string | null;
+}
+
+export interface OfficialValidationItem {
+  questionId: number;
+  title: string;
+  sourceQuestionNumber: number | null;
+  importStatus: QuestionImportStatus;
+  autoValidationStatus: AutoValidationStatus;
+  validatedAgainstOfficialSource: boolean;
+  assetRecovered: boolean;
+  warnings: string[];
+}
+
+export interface OfficialValidationReport {
+  processed: number;
+  validated: number;
+  needsReview: number;
+  invalid: number;
+  brokenImages: number;
+  pendingAssets: number;
+  pendingInep: number;
+  assetRecovered: number;
+  assetRecoveryFailed: number;
+  items: OfficialValidationItem[];
+}
+
 export interface QuestionFilters {
   page?: number;
   size?: number;

@@ -4,6 +4,8 @@ import com.gabaritaplus.api.dto.importer.official.OfficialExamSourceRequest;
 import com.gabaritaplus.api.dto.importer.official.OfficialExamSourceResponse;
 import com.gabaritaplus.api.dto.importer.review.AutoValidationBatchResponse;
 import com.gabaritaplus.api.dto.importer.review.AutoValidationCountersResponse;
+import com.gabaritaplus.api.dto.importer.review.OfficialValidationItemResponse;
+import com.gabaritaplus.api.dto.importer.review.OfficialValidationReportResponse;
 import com.gabaritaplus.api.entity.Alternative;
 import com.gabaritaplus.api.entity.OfficialExamSource;
 import com.gabaritaplus.api.entity.Question;
@@ -17,11 +19,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -40,6 +47,7 @@ public class QuestionAutoValidationService {
 
     private final QuestionRepository questionRepository;
     private final OfficialExamSourceRepository officialExamSourceRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.import.auto-publish-imported-questions:false}")
     private boolean autoPublishImportedQuestions;
@@ -55,6 +63,7 @@ public class QuestionAutoValidationService {
         source.setAnswerKeyUrl(request.answerKeyUrl());
         source.setSourceUrl(request.sourceUrl());
         source.setLocalPdfPath(request.localPdfPath());
+        source.setAnswerKeyMapJson(request.answerKeyMapJson());
         return toOfficialSourceResponse(officialExamSourceRepository.save(source));
     }
 
@@ -152,6 +161,44 @@ public class QuestionAutoValidationService {
                 reviewable.stream().filter(question -> Boolean.TRUE.equals(question.getBrokenImageDetected())).count(),
                 reviewable.stream().filter(question -> !Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource())).count()
         );
+    }
+
+    @Transactional
+    public OfficialValidationReportResponse validateAgainstOfficialSource(Long questionId) {
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Questao nao encontrada."));
+        OfficialValidationItemResponse item = validateQuestionAgainstOfficialSource(question);
+        questionRepository.save(question);
+        return buildOfficialReport(List.of(item));
+    }
+
+    @Transactional
+    public OfficialValidationReportResponse validateAgainstOfficialSourceBatch() {
+        List<Question> candidates = reviewCandidates();
+        List<OfficialValidationItemResponse> items = candidates.stream()
+                .map(this::validateQuestionAgainstOfficialSource)
+                .toList();
+        questionRepository.saveAll(candidates);
+        return buildOfficialReport(items);
+    }
+
+    @Transactional
+    public OfficialValidationReportResponse recoverAssets(Long questionId) {
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Questao nao encontrada."));
+        OfficialValidationItemResponse item = recoverQuestionAssets(question);
+        questionRepository.save(question);
+        return buildOfficialReport(List.of(item));
+    }
+
+    @Transactional
+    public OfficialValidationReportResponse recoverAssetsBatch() {
+        List<Question> candidates = reviewCandidates();
+        List<OfficialValidationItemResponse> items = candidates.stream()
+                .map(this::recoverQuestionAssets)
+                .toList();
+        questionRepository.saveAll(candidates);
+        return buildOfficialReport(items);
     }
 
     public AutoValidationResult evaluate(Question question) {
@@ -262,6 +309,72 @@ public class QuestionAutoValidationService {
         }
     }
 
+    private OfficialValidationItemResponse validateQuestionAgainstOfficialSource(Question question) {
+        initializeQuestionGraph(question);
+        List<String> warnings = new ArrayList<>();
+        Optional<OfficialExamSource> source = findMatchingOfficialSource(question);
+
+        if (source.isEmpty()) {
+            warnings.add("OFFICIAL_SOURCE_NOT_FOUND");
+        } else {
+            attachOfficialSource(question, source.get());
+            warnings.addAll(validateOfficialMetadata(question, source.get()));
+            warnings.addAll(validateOfficialAnswerKey(question, source.get()));
+        }
+
+        boolean canTrustOfficialValidation = source.isPresent() && warnings.isEmpty();
+        if (canTrustOfficialValidation) {
+            question.setValidatedAgainstOfficialSource(true);
+            question.setValidatedAt(OffsetDateTime.now());
+            if (question.getImportStatus() == QuestionImportStatus.NEEDS_REVIEW) {
+                question.setImportStatus(QuestionImportStatus.VALIDATED);
+            }
+        } else {
+            question.setValidatedAgainstOfficialSource(false);
+            if (question.getImportStatus() != QuestionImportStatus.INVALID
+                    && question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
+                question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+            }
+        }
+
+        applyAutoValidation(question);
+        appendWarnings(question, warnings);
+        return toOfficialItem(question, false, warnings);
+    }
+
+    private OfficialValidationItemResponse recoverQuestionAssets(Question question) {
+        initializeQuestionGraph(question);
+        List<String> warnings = new ArrayList<>();
+        Optional<OfficialExamSource> source = findMatchingOfficialSource(question);
+        boolean assetRecovered = false;
+
+        if (source.isEmpty()) {
+            warnings.add("OFFICIAL_SOURCE_NOT_FOUND");
+            warnings.add("PDF_NOT_FOUND");
+        } else {
+            attachOfficialSource(question, source.get());
+            if (source.get().getPdfUrl() == null || source.get().getPdfUrl().isBlank()) {
+                warnings.add("PDF_NOT_FOUND");
+            } else if (hasBrokenImageReference(question) || (mentionsVisualAsset(question) && question.getAssets().isEmpty())) {
+                warnings.add("ASSET_RECOVERY_FAILED");
+            }
+        }
+
+        applyAutoValidation(question);
+        appendWarnings(question, warnings);
+        return toOfficialItem(question, assetRecovered, warnings);
+    }
+
+    private List<Question> reviewCandidates() {
+        return questionRepository.findByImportStatusIn(List.of(
+                QuestionImportStatus.DRAFT,
+                QuestionImportStatus.NEEDS_REVIEW,
+                QuestionImportStatus.VALIDATED,
+                QuestionImportStatus.AUTO_VALIDATED,
+                QuestionImportStatus.INVALID
+        ));
+    }
+
     public boolean canAutoPublish(Question question) {
         return autoPublishImportedQuestions
                 && question.getAutoValidationScore() != null
@@ -280,18 +393,143 @@ public class QuestionAutoValidationService {
             return;
         }
 
-        officialExamSourceRepository
+        findMatchingOfficialSource(question).ifPresent(source -> attachOfficialSource(question, source));
+    }
+
+    private Optional<OfficialExamSource> findMatchingOfficialSource(Question question) {
+        if (question.getSourceExam() == null || question.getSourceYear() == null || question.getSourceDay() == null) {
+            return Optional.empty();
+        }
+
+        return officialExamSourceRepository
                 .findByExamIgnoreCaseAndYearAndDay(question.getSourceExam(), question.getSourceYear(), question.getSourceDay())
                 .stream()
                 .filter(source -> source.getBookColor() == null
                         || question.getSourceBookColor() == null
                         || source.getBookColor().equalsIgnoreCase(question.getSourceBookColor()))
-                .findFirst()
-                .ifPresent(source -> {
-                    question.setOfficialPdfUrl(source.getPdfUrl());
-                    question.setOfficialAnswerKeyUrl(source.getAnswerKeyUrl());
-                    question.setOfficialSourceUrl(source.getSourceUrl());
-                });
+                .findFirst();
+    }
+
+    private void attachOfficialSource(Question question, OfficialExamSource source) {
+        question.setOfficialPdfUrl(source.getPdfUrl());
+        question.setOfficialAnswerKeyUrl(source.getAnswerKeyUrl());
+        question.setOfficialSourceUrl(source.getSourceUrl());
+    }
+
+    private List<String> validateOfficialMetadata(Question question, OfficialExamSource source) {
+        List<String> warnings = new ArrayList<>();
+        if (!source.getYear().equals(question.getSourceYear())) {
+            warnings.add("OFFICIAL_YEAR_MISMATCH");
+        }
+        if (source.getDay() == null || question.getSourceDay() == null || !source.getDay().equals(question.getSourceDay())) {
+            warnings.add("OFFICIAL_DAY_MISMATCH");
+        }
+        if (question.getSourceQuestionNumber() == null) {
+            warnings.add("OFFICIAL_QUESTION_NUMBER_MISSING");
+        }
+        if (source.getBookColor() != null
+                && question.getSourceBookColor() != null
+                && !"UNKNOWN".equalsIgnoreCase(question.getSourceBookColor())
+                && !source.getBookColor().equalsIgnoreCase(question.getSourceBookColor())) {
+            warnings.add("OFFICIAL_BOOK_COLOR_MISMATCH");
+        }
+        if (source.getPdfUrl() == null || source.getPdfUrl().isBlank()) {
+            warnings.add("PDF_NOT_FOUND");
+        }
+        return warnings;
+    }
+
+    private List<String> validateOfficialAnswerKey(Question question, OfficialExamSource source) {
+        List<String> warnings = new ArrayList<>();
+        Map<String, String> answerKey = parseAnswerKeyMap(source.getAnswerKeyMapJson());
+        if (answerKey.isEmpty()) {
+            warnings.add("ANSWER_KEY_NOT_VERIFIED");
+            return warnings;
+        }
+
+        String officialAnswer = answerKey.get(String.valueOf(question.getSourceQuestionNumber()));
+        if (officialAnswer == null || officialAnswer.isBlank()) {
+            warnings.add("ANSWER_KEY_NOT_VERIFIED");
+            return warnings;
+        }
+
+        String importedAnswer = question.getCorrectAlternative() == null
+                ? ""
+                : question.getCorrectAlternative().trim().toUpperCase(Locale.ROOT);
+        if (!officialAnswer.trim().equalsIgnoreCase(importedAnswer)) {
+            warnings.add("ANSWER_KEY_MISMATCH");
+        }
+        return warnings;
+    }
+
+    private Map<String, String> parseAnswerKeyMap(String answerKeyMapJson) {
+        if (answerKeyMapJson == null || answerKeyMapJson.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(answerKeyMapJson, new TypeReference<LinkedHashMap<String, String>>() {});
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+    }
+
+    private void appendWarnings(Question question, List<String> warnings) {
+        if (warnings.isEmpty()) {
+            return;
+        }
+        List<String> merged = new ArrayList<>();
+        if (question.getAutoValidationWarnings() != null && !question.getAutoValidationWarnings().isBlank()) {
+            merged.addAll(List.of(question.getAutoValidationWarnings().split("\\n+")));
+        }
+        merged.addAll(warnings);
+        question.setAutoValidationWarnings(String.join("\n", merged.stream()
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .toList()));
+    }
+
+    private OfficialValidationItemResponse toOfficialItem(Question question, boolean assetRecovered, List<String> warnings) {
+        List<String> mergedWarnings = new ArrayList<>();
+        if (question.getAutoValidationWarnings() != null && !question.getAutoValidationWarnings().isBlank()) {
+            mergedWarnings.addAll(List.of(question.getAutoValidationWarnings().split("\\n+")));
+        }
+        mergedWarnings.addAll(warnings);
+        return new OfficialValidationItemResponse(
+                question.getId(),
+                question.getTitle(),
+                question.getSourceQuestionNumber(),
+                question.getImportStatus(),
+                question.getAutoValidationStatus(),
+                Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource()),
+                assetRecovered,
+                List.copyOf(mergedWarnings.stream()
+                        .map(String::trim)
+                        .filter(value -> !value.isBlank())
+                        .distinct()
+                        .toList())
+        );
+    }
+
+    private OfficialValidationReportResponse buildOfficialReport(List<OfficialValidationItemResponse> items) {
+        return new OfficialValidationReportResponse(
+                items.size(),
+                (int) items.stream().filter(OfficialValidationItemResponse::validatedAgainstOfficialSource).count(),
+                (int) items.stream().filter(item -> item.importStatus() == QuestionImportStatus.NEEDS_REVIEW).count(),
+                (int) items.stream().filter(item -> item.importStatus() == QuestionImportStatus.INVALID).count(),
+                (int) items.stream().filter(item -> item.warnings().contains("ASSET_MISSING_OR_BROKEN")).count(),
+                (int) items.stream().filter(item -> item.warnings().contains("ASSET_RECOVERY_FAILED")).count(),
+                (int) items.stream().filter(item -> !item.validatedAgainstOfficialSource()).count(),
+                (int) items.stream().filter(OfficialValidationItemResponse::assetRecovered).count(),
+                (int) items.stream().filter(item -> item.warnings().contains("ASSET_RECOVERY_FAILED")).count(),
+                items
+        );
+    }
+
+    private void initializeQuestionGraph(Question question) {
+        question.getAssets().size();
+        question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
+        question.getAlternatives().size();
     }
 
     private boolean hasEmptyAlternative(Question question) {
@@ -341,6 +579,7 @@ public class QuestionAutoValidationService {
                 source.getAnswerKeyUrl(),
                 source.getSourceUrl(),
                 source.getLocalPdfPath(),
+                source.getAnswerKeyMapJson(),
                 source.getCreatedAt()
         );
     }

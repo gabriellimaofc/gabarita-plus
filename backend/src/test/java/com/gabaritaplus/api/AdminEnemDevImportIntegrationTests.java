@@ -282,6 +282,70 @@ class AdminEnemDevImportIntegrationTests {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void officialSourceValidationRequiresStructuredAnswerKey() throws Exception {
+        Question saved = buildReviewQuestionWithAlternatives();
+        saved.setStatement("Leia o texto e responda a pergunta.");
+        saved.setSourceDay(1);
+        saved.setSourceBookColor("AZUL");
+        saved = questionRepository.save(saved);
+
+        mockMvc.perform(post("/admin/import/official-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "exam", "ENEM",
+                                "year", 2023,
+                                "day", 1,
+                                "bookColor", "AZUL",
+                                "pdfUrl", "https://www.gov.br/inep/prova.pdf",
+                                "answerKeyUrl", "https://www.gov.br/inep/gabarito.pdf",
+                                "sourceUrl", "https://www.gov.br/inep/provas-e-gabaritos",
+                                "answerKeyMapJson", "{\"1\":\"A\"}"
+                        ))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/admin/import/questions/{id}/validate-against-official-source", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.processed").value(1))
+                .andExpect(jsonPath("$.data.validated").value(1))
+                .andExpect(jsonPath("$.data.items[0].validatedAgainstOfficialSource").value(true))
+                .andExpect(jsonPath("$.data.items[0].importStatus").value("AUTO_VALIDATED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void officialAssetRecoveryKeepsUntrustedVisualQuestionInReview() throws Exception {
+        Question saved = buildReviewQuestionWithAlternatives();
+        saved.setStatement("Texto com ![](https://enem.dev/broken-image.svg)");
+        saved.setSourceDay(1);
+        saved.setSourceBookColor("AZUL");
+        saved = questionRepository.save(saved);
+
+        mockMvc.perform(post("/admin/import/official-sources")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "exam", "ENEM",
+                                "year", 2023,
+                                "day", 1,
+                                "bookColor", "AZUL",
+                                "pdfUrl", "https://www.gov.br/inep/prova.pdf",
+                                "answerKeyUrl", "https://www.gov.br/inep/gabarito.pdf",
+                                "sourceUrl", "https://www.gov.br/inep/provas-e-gabaritos"
+                        ))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/admin/import/questions/{id}/recover-assets", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.processed").value(1))
+                .andExpect(jsonPath("$.data.assetRecovered").value(0))
+                .andExpect(jsonPath("$.data.assetRecoveryFailed").value(1))
+                .andExpect(jsonPath("$.data.items[0].warnings", hasItem("ASSET_RECOVERY_FAILED")));
+
+        Question reloaded = questionRepository.findById(saved.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(QuestionImportStatus.NEEDS_REVIEW, reloaded.getImportStatus());
+    }
+
+    @Test
     void needsReviewQuestionStaysHiddenFromStudentEndpoints() throws Exception {
         Question saved = questionRepository.save(buildReviewQuestion());
         User student = createUser();

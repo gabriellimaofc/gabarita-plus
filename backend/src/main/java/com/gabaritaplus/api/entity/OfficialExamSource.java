@@ -37,4 +37,7 @@ public class OfficialExamSource extends BaseEntity {
 
     @Column(name = "local_pdf_path", length = 1000)
     private String localPdfPath;
+
+    @Column(name = "answer_key_map_json", columnDefinition = "TEXT")
+    private String answerKeyMapJson;
 }

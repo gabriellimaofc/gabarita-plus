@@ -12,6 +12,7 @@ public record OfficialExamSourceResponse(
         String answerKeyUrl,
         String sourceUrl,
         String localPdfPath,
+        String answerKeyMapJson,
         OffsetDateTime createdAt
 ) {
 }
