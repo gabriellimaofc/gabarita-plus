@@ -252,31 +252,52 @@ public class OfficialPdfAssetRecoveryService {
 
     private Path resolveOfficialPdf(OfficialExamSource source, OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics) {
         try {
-            diagnostics.pdfUrlUsed(source.getPdfUrl());
-            if (source.getLocalPdfPath() != null && !source.getLocalPdfPath().isBlank()) {
-                Path localPath = Path.of(source.getLocalPdfPath());
-                if (Files.exists(localPath) && Files.size(localPath) > 0) {
-                    diagnostics.pdfDownloaded(true).pdfSizeBytes(Files.size(localPath));
-                    log.info("Official PDF loaded from local cache path={} bytes={}", localPath, Files.size(localPath));
-                    return localPath;
-                }
-            }
-
             Path cacheDirectory = Path.of(pdfCacheDir);
             Files.createDirectories(cacheDirectory);
             String fileName = source.getYear() + "_D" + source.getDay() + "_" + source.getBookColor() + ".pdf";
             Path cachedPdf = cacheDirectory.resolve(fileName.replaceAll("[^A-Za-z0-9_.-]", "_"));
             if (Files.exists(cachedPdf) && Files.size(cachedPdf) > 0) {
                 diagnostics.pdfDownloaded(true).pdfSizeBytes(Files.size(cachedPdf));
-                log.info("Official PDF loaded from generated cache path={} bytes={}", cachedPdf, Files.size(cachedPdf));
+                diagnostics.pdfDownloadSource("LOCAL_CACHE");
+                log.info("Official PDF loaded from generated local cache path={} bytes={}", cachedPdf, Files.size(cachedPdf));
                 return cachedPdf;
             }
 
-            byte[] pdf = downloadOfficialPdf(source.getPdfUrl(), diagnostics);
-            Files.write(cachedPdf, pdf);
-            diagnostics.pdfDownloaded(true).pdfSizeBytes((long) pdf.length);
-            log.info("Official PDF downloaded pdfUrl={} bytes={}", source.getPdfUrl(), pdf.length);
-            return cachedPdf;
+            PdfRecoveryException officialFailure = null;
+            if (source.getPdfUrl() != null && !source.getPdfUrl().isBlank()) {
+                try {
+                    byte[] pdf = downloadOfficialPdf(source.getPdfUrl(), "OFFICIAL_URL", diagnostics);
+                    Files.write(cachedPdf, pdf);
+                    diagnostics.pdfDownloaded(true).pdfSizeBytes((long) pdf.length);
+                    log.info("Official PDF downloaded from official URL pdfUrl={} bytes={}", source.getPdfUrl(), pdf.length);
+                    return cachedPdf;
+                } catch (PdfRecoveryException exception) {
+                    officialFailure = exception;
+                    diagnostics.sslFailure(diagnostics.sslFailure() || isSslFailure(exception.getMessage()));
+                    log.warn("Official PDF URL download failed pdfUrl={} reason={} sslFailure={}", source.getPdfUrl(), exception.getMessage(), diagnostics.sslFailure());
+                }
+            }
+
+            Path localFallback = resolveLocalPdfFallback(source, diagnostics);
+            if (localFallback != null) {
+                return localFallback;
+            }
+
+            if (source.getCachedPdfUrl() != null && !source.getCachedPdfUrl().isBlank()) {
+                Path cachedUrlPdf = cacheDirectory.resolve(("cached_" + fileName).replaceAll("[^A-Za-z0-9_.-]", "_"));
+                byte[] pdf = downloadOfficialPdf(source.getCachedPdfUrl(), "CACHED_URL", diagnostics);
+                Files.write(cachedUrlPdf, pdf);
+                diagnostics.pdfDownloaded(true)
+                        .pdfSizeBytes((long) pdf.length)
+                        .cachedPdfUrlUsed(source.getCachedPdfUrl());
+                log.info("Official PDF downloaded from cached URL cachedPdfUrl={} bytes={}", source.getCachedPdfUrl(), pdf.length);
+                return cachedUrlPdf;
+            }
+
+            if (officialFailure != null) {
+                throw officialFailure;
+            }
+            throw new PdfRecoveryException("PDF_DOWNLOAD_FAILED", "No official or cached PDF URL was available.");
         } catch (PdfRecoveryException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -284,8 +305,37 @@ public class OfficialPdfAssetRecoveryService {
         }
     }
 
-    private byte[] downloadOfficialPdf(String pdfUrl, OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics) {
+    private Path resolveLocalPdfFallback(OfficialExamSource source, OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics) throws Exception {
+        if (source.getLocalPdfPath() == null || source.getLocalPdfPath().isBlank()) {
+            return null;
+        }
+        Path localPath = Path.of(source.getLocalPdfPath());
+        if (!Files.exists(localPath) || Files.size(localPath) <= 0) {
+            diagnostics.pdfDownloadErrorMessage("localPdfPath not found or empty: " + source.getLocalPdfPath());
+            return null;
+        }
+        byte[] bytes = Files.readAllBytes(localPath);
+        validatePdfResponse(200, "application/pdf", bytes);
+        diagnostics.pdfDownloaded(true)
+                .pdfSizeBytes(Files.size(localPath))
+                .pdfDownloadHttpStatus(200)
+                .pdfDownloadContentType("application/pdf")
+                .pdfDownloadContentLength(Files.size(localPath))
+                .pdfUrlUsed(source.getLocalPdfPath())
+                .cachedPdfUrlUsed(source.getLocalPdfPath())
+                .pdfDownloadSource("LOCAL_PDF_PATH");
+        log.info("Official PDF loaded from localPdfPath path={} bytes={}", localPath, Files.size(localPath));
+        return localPath;
+    }
+
+    private byte[] downloadOfficialPdf(String pdfUrl, String sourceType, OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics) {
         diagnostics.pdfUrlUsed(pdfUrl);
+        if ("OFFICIAL_URL".equals(sourceType)) {
+            diagnostics.attemptedOfficialPdfUrl(true);
+        }
+        if ("CACHED_URL".equals(sourceType)) {
+            diagnostics.attemptedCachedPdfUrl(true).cachedPdfUrlUsed(pdfUrl);
+        }
         List<DownloadAttempt> attempts = List.of(
                 new DownloadAttempt("DEFAULT_BROWSER_HEADERS", true),
                 new DownloadAttempt("IDENTITY_ENCODING", false)
@@ -321,7 +371,8 @@ public class OfficialPdfAssetRecoveryService {
                 diagnostics.pdfDownloadHttpStatus(response.statusCode())
                         .pdfDownloadContentType(contentType)
                         .pdfDownloadContentLength(contentLength)
-                        .pdfDownloadErrorMessage(null);
+                        .pdfDownloadErrorMessage(null)
+                        .pdfDownloadSource(sourceType);
 
                 log.info(
                         "Official PDF download attempt method={} status={} contentType={} contentLength={} url={}",
@@ -336,10 +387,12 @@ public class OfficialPdfAssetRecoveryService {
                 return body;
             } catch (PdfRecoveryException exception) {
                 lastFailure = exception;
+                diagnostics.sslFailure(diagnostics.sslFailure() || isSslFailure(exception.getMessage()));
                 diagnostics.pdfDownloadErrorMessage(exception.getMessage());
                 log.warn("Official PDF download attempt failed method={} reason={}", attempt.name(), exception.getMessage());
             } catch (Exception exception) {
                 lastFailure = new PdfRecoveryException("PDF_DOWNLOAD_FAILED", sanitizeDownloadError(exception));
+                diagnostics.sslFailure(diagnostics.sslFailure() || isSslFailure(lastFailure.getMessage()));
                 diagnostics.pdfDownloadErrorMessage(lastFailure.getMessage());
                 log.warn("Official PDF download attempt failed method={} reason={}", attempt.name(), sanitizeDownloadError(exception));
             }
@@ -349,6 +402,18 @@ public class OfficialPdfAssetRecoveryService {
             throw lastFailure;
         }
         throw new PdfRecoveryException("PDF_DOWNLOAD_FAILED", "No download attempts were executed.");
+    }
+
+    private boolean isSslFailure(String message) {
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase(Locale.ROOT);
+        return normalized.contains("pkix")
+                || normalized.contains("certificate_unknown")
+                || normalized.contains("certpath")
+                || normalized.contains("sslhandshakeexception")
+                || normalized.contains("unable to find valid certification path");
     }
 
     private void validatePdfResponse(int statusCode, String contentType, byte[] body) {

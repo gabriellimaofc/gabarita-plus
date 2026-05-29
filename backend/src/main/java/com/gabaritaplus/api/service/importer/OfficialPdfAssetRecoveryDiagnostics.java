@@ -13,6 +13,11 @@ public record OfficialPdfAssetRecoveryDiagnostics(
         Long pdfDownloadContentLength,
         String pdfDownloadErrorMessage,
         String pdfUrlUsed,
+        boolean sslFailure,
+        boolean attemptedOfficialPdfUrl,
+        boolean attemptedCachedPdfUrl,
+        String cachedPdfUrlUsed,
+        String pdfDownloadSource,
         Integer pdfPageCount,
         List<Integer> candidatePages,
         Integer selectedPage,
@@ -39,6 +44,11 @@ public record OfficialPdfAssetRecoveryDiagnostics(
         private Long pdfDownloadContentLength;
         private String pdfDownloadErrorMessage;
         private String pdfUrlUsed;
+        private boolean sslFailure;
+        private boolean attemptedOfficialPdfUrl;
+        private boolean attemptedCachedPdfUrl;
+        private String cachedPdfUrlUsed;
+        private String pdfDownloadSource;
         private Integer pdfPageCount;
         private List<Integer> candidatePages = new ArrayList<>();
         private Integer selectedPage;
@@ -93,6 +103,35 @@ public record OfficialPdfAssetRecoveryDiagnostics(
 
         public Builder pdfUrlUsed(String value) {
             this.pdfUrlUsed = value;
+            return this;
+        }
+
+        public Builder sslFailure(boolean value) {
+            this.sslFailure = value;
+            return this;
+        }
+
+        public boolean sslFailure() {
+            return sslFailure;
+        }
+
+        public Builder attemptedOfficialPdfUrl(boolean value) {
+            this.attemptedOfficialPdfUrl = value;
+            return this;
+        }
+
+        public Builder attemptedCachedPdfUrl(boolean value) {
+            this.attemptedCachedPdfUrl = value;
+            return this;
+        }
+
+        public Builder cachedPdfUrlUsed(String value) {
+            this.cachedPdfUrlUsed = value;
+            return this;
+        }
+
+        public Builder pdfDownloadSource(String value) {
+            this.pdfDownloadSource = value;
             return this;
         }
 
@@ -162,6 +201,11 @@ public record OfficialPdfAssetRecoveryDiagnostics(
                     pdfDownloadContentLength,
                     pdfDownloadErrorMessage,
                     pdfUrlUsed,
+                    sslFailure,
+                    attemptedOfficialPdfUrl,
+                    attemptedCachedPdfUrl,
+                    cachedPdfUrlUsed,
+                    pdfDownloadSource,
                     pdfPageCount,
                     List.copyOf(candidatePages),
                     selectedPage,

@@ -65,6 +65,7 @@ public class QuestionAutoValidationService {
         source.setAnswerKeyUrl(request.answerKeyUrl());
         source.setSourceUrl(request.sourceUrl());
         source.setLocalPdfPath(request.localPdfPath());
+        source.setCachedPdfUrl(request.cachedPdfUrl());
         source.setAnswerKeyMapJson(request.answerKeyMapJson());
         return toOfficialSourceResponse(officialExamSourceRepository.save(source));
     }
@@ -621,6 +622,11 @@ public class QuestionAutoValidationService {
                 diagnostics == null ? null : diagnostics.pdfDownloadContentLength(),
                 diagnostics == null ? null : diagnostics.pdfDownloadErrorMessage(),
                 diagnostics == null ? null : diagnostics.pdfUrlUsed(),
+                diagnostics != null && diagnostics.sslFailure(),
+                diagnostics != null && diagnostics.attemptedOfficialPdfUrl(),
+                diagnostics != null && diagnostics.attemptedCachedPdfUrl(),
+                diagnostics == null ? null : diagnostics.cachedPdfUrlUsed(),
+                diagnostics == null ? null : diagnostics.pdfDownloadSource(),
                 diagnostics == null ? null : diagnostics.pdfPageCount(),
                 diagnostics == null ? List.of() : diagnostics.candidatePages(),
                 diagnostics == null ? null : diagnostics.selectedPage(),
@@ -744,6 +750,7 @@ public class QuestionAutoValidationService {
                 source.getAnswerKeyUrl(),
                 source.getSourceUrl(),
                 source.getLocalPdfPath(),
+                source.getCachedPdfUrl(),
                 source.getAnswerKeyMapJson(),
                 source.getCreatedAt()
         );

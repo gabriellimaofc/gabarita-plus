@@ -337,6 +337,7 @@ export function ImportReviewAdminView() {
     answerKeyUrl: "",
     sourceUrl: "",
     localPdfPath: "",
+    cachedPdfUrl: "",
     answerKeyMapJson: "",
   });
   const [officialValidationReport, setOfficialValidationReport] = useState<OfficialValidationReport | null>(null);
@@ -452,6 +453,7 @@ export function ImportReviewAdminView() {
       bookColor: officialSourceForm.bookColor?.trim() || null,
       answerKeyUrl: officialSourceForm.answerKeyUrl?.trim() || null,
       localPdfPath: officialSourceForm.localPdfPath?.trim() || null,
+      cachedPdfUrl: officialSourceForm.cachedPdfUrl?.trim() || null,
       answerKeyMapJson: officialSourceForm.answerKeyMapJson?.trim() || null,
     });
   }
@@ -608,6 +610,7 @@ export function ImportReviewAdminView() {
                     {source.answerKeyMapJson ? <Badge variant="success">Gabarito estruturado</Badge> : <Badge variant="warning">Sem mapa de gabarito</Badge>}
                   </div>
                   <p className="mt-3 break-all text-muted-foreground">PDF: {source.pdfUrl}</p>
+                  <p className="mt-1 break-all text-muted-foreground">PDF cacheado: {source.cachedPdfUrl ?? source.localPdfPath ?? "-"}</p>
                   <p className="mt-1 break-all text-muted-foreground">Gabarito: {source.answerKeyUrl ?? "-"}</p>
                   <Button
                     className="mt-3"
@@ -661,6 +664,17 @@ export function ImportReviewAdminView() {
             <div className="space-y-2">
               <Label>sourceUrl oficial</Label>
               <Input value={officialSourceForm.sourceUrl} onChange={(event) => setOfficialSourceForm((current) => ({ ...current, sourceUrl: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>cachedPdfUrl opcional</Label>
+              <Input
+                value={officialSourceForm.cachedPdfUrl ?? ""}
+                onChange={(event) => setOfficialSourceForm((current) => ({ ...current, cachedPdfUrl: event.target.value }))}
+                placeholder="https://.../official-exam-pdfs/enem/2023/day-1/azul.pdf"
+              />
+              <p className="text-xs text-muted-foreground">
+                Use apenas cópia do PDF oficial do INEP em storage controlado.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Mapa de gabarito JSON opcional</Label>
@@ -737,6 +751,10 @@ export function ImportReviewAdminView() {
                       <span>Upload tentado: {item.storageUploadAttempted ? "sim" : "não"}</span>
                       <span>Upload OK: {item.storageUploadSuccess ? "sim" : "não"}</span>
                       <span>Método: {item.recoveryMethod ?? "-"}</span>
+                      <span>Falha SSL: {item.sslFailure ? "sim" : "não"}</span>
+                      <span>Fonte do PDF: {item.pdfDownloadSource ?? "-"}</span>
+                      <span>URL oficial tentada: {item.attemptedOfficialPdfUrl ? "sim" : "não"}</span>
+                      <span>URL cacheada tentada: {item.attemptedCachedPdfUrl ? "sim" : "não"}</span>
                       <span className="md:col-span-2 xl:col-span-3">
                         Motivo técnico: {item.recoveryFailureReason ?? "sem falha técnica registrada"}
                       </span>
@@ -747,6 +765,9 @@ export function ImportReviewAdminView() {
                       ) : null}
                       {item.pdfUrlUsed ? (
                         <span className="break-all md:col-span-2 xl:col-span-3">PDF usado: {item.pdfUrlUsed}</span>
+                      ) : null}
+                      {item.cachedPdfUrlUsed ? (
+                        <span className="break-all md:col-span-2 xl:col-span-3">PDF cacheado usado: {item.cachedPdfUrlUsed}</span>
                       ) : null}
                       {item.assetUrl ? (
                         <a

@@ -191,6 +191,7 @@ export interface OfficialExamSource {
   answerKeyUrl: string | null;
   sourceUrl: string;
   localPdfPath: string | null;
+  cachedPdfUrl: string | null;
   answerKeyMapJson: string | null;
   createdAt: string;
 }
@@ -204,6 +205,7 @@ export interface OfficialExamSourcePayload {
   answerKeyUrl?: string | null;
   sourceUrl: string;
   localPdfPath?: string | null;
+  cachedPdfUrl?: string | null;
   answerKeyMapJson?: string | null;
 }
 
@@ -233,6 +235,11 @@ export interface OfficialValidationItem {
   pdfDownloadContentLength: number | null;
   pdfDownloadErrorMessage: string | null;
   pdfUrlUsed: string | null;
+  sslFailure: boolean;
+  attemptedOfficialPdfUrl: boolean;
+  attemptedCachedPdfUrl: boolean;
+  cachedPdfUrlUsed: string | null;
+  pdfDownloadSource: string | null;
   pdfPageCount: number | null;
   candidatePages: number[];
   selectedPage: number | null;
