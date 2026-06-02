@@ -290,23 +290,29 @@ export function QuestionRichText({
 
 function AssetImage({
   asset,
+  showReviewWarning,
   onOpen,
 }: {
   asset: QuestionAsset;
+  showReviewWarning?: boolean;
   onOpen: (asset: QuestionAsset) => void;
 }) {
   const [broken, setBroken] = useState(false);
+  const hasCropMetadata = [asset.cropX, asset.cropY, asset.cropWidth, asset.cropHeight].every(
+    (value) => typeof value === "number",
+  );
+  const needsManualCropReview = showReviewWarning || !hasCropMetadata;
 
   if (!asset.url || broken) {
     return (
-      <div className="rounded-[22px] border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+      <div className="w-full rounded-[22px] border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
         Não foi possível carregar este recurso visual.
       </div>
     );
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-[24px] border border-border/70 bg-background/80 shadow-sm">
+    <div className="min-w-0 w-full overflow-hidden rounded-[24px] border border-border/70 bg-background/80 shadow-sm">
       <button
         type="button"
         className="block w-full cursor-zoom-in"
@@ -318,20 +324,53 @@ function AssetImage({
           src={asset.url}
           alt={asset.altText ?? "Recurso visual da questão"}
           loading="lazy"
-          className="mx-auto max-h-[320px] w-full max-w-[420px] object-contain bg-muted/20 md:max-h-[380px]"
+          className="mx-auto max-h-[360px] w-full max-w-full object-contain bg-muted/20 p-2 md:max-h-[440px]"
           onError={() => setBroken(true)}
         />
       </button>
-      <div className="flex items-start justify-between gap-3 p-4 text-sm text-muted-foreground">
-        <div>
-          <p className="font-medium text-foreground">{asset.type}</p>
-          {asset.caption ? <p className="mt-1">{asset.caption}</p> : null}
+      <div className="flex flex-col gap-3 p-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <p className="font-medium text-foreground">{asset.type}</p>
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                PDF oficial INEP
+              </span>
+              {needsManualCropReview ? (
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
+                  Revisao manual
+                </span>
+              ) : null}
+            </div>
+            {asset.caption ? <p className="text-sm leading-6">{asset.caption}</p> : null}
+          </div>
+          {asset.url ? (
+            <a
+              href={asset.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex shrink-0 items-center gap-1 text-primary"
+            >
+              Abrir
+              <ExternalLink className="size-3.5" />
+            </a>
+          ) : null}
         </div>
-        {asset.url ? (
-          <a href={asset.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
-            Abrir
-            <ExternalLink className="size-3.5" />
-          </a>
+        <div className="grid gap-2 text-xs leading-5 text-muted-foreground sm:grid-cols-2">
+          <p className="min-w-0 break-words">storagePath: {asset.storagePath ?? "-"}</p>
+          <p>pagina PDF: {asset.sourcePage ?? "-"}</p>
+          <p className="min-w-0 break-words">arquivo original: {asset.originalFileName ?? "-"}</p>
+          <p className="min-w-0 break-words">checksum: {asset.checksum ?? "-"}</p>
+        </div>
+        {needsManualCropReview ? (
+          <div className="rounded-[18px] border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-700 dark:text-amber-300">
+            Confira o enquadramento no PDF oficial. Este asset exige revisao humana ou nao possui metadados completos de recorte.
+          </div>
+        ) : null}
+        {hasCropMetadata ? (
+          <p className="text-xs leading-5 text-muted-foreground">
+            Crop: x={asset.cropX} y={asset.cropY} w={asset.cropWidth} h={asset.cropHeight}
+          </p>
         ) : null}
       </div>
     </div>
@@ -341,10 +380,12 @@ function AssetImage({
 function AssetGallery({
   assets,
   title,
+  requiresReview,
   onOpen,
 }: {
   assets: QuestionAsset[];
   title?: string;
+  requiresReview?: boolean;
   onOpen: (asset: QuestionAsset) => void;
 }) {
   if (!assets.length) {
@@ -352,11 +393,11 @@ function AssetGallery({
   }
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 w-full space-y-3">
       {title ? <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{title}</p> : null}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         {assets.map((asset) => (
-          <AssetImage key={asset.id} asset={asset} onOpen={onOpen} />
+          <AssetImage key={asset.id} asset={asset} showReviewWarning={requiresReview} onOpen={onOpen} />
         ))}
       </div>
     </div>
@@ -368,30 +409,55 @@ export function QuestionContent({
   statementHtml,
   assets,
   sourceLabel,
+  requiresAssetReview,
 }: {
   statement: string;
   statementHtml?: string | null;
   assets: QuestionAsset[];
   sourceLabel?: string;
+  requiresAssetReview?: boolean;
 }) {
   const [activeAsset, setActiveAsset] = useState<QuestionAsset | null>(null);
 
   return (
     <>
-      <div className="min-w-0 space-y-5">
-        <section className="min-w-0 rounded-[26px] border border-border/70 bg-background/70 p-4 shadow-sm sm:p-5">
+      <div className="min-w-0 w-full space-y-5">
+        <section className="min-w-0 w-full rounded-[26px] border border-border/70 bg-background/70 p-4 shadow-sm sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Enunciado</p>
             <span className="text-xs text-muted-foreground">Texto legível e sem colapso de largura</span>
           </div>
-          <QuestionRichText html={statementHtml} fallbackText={statement} className="min-w-0" />
+          <div className="min-w-0 w-full">
+            <QuestionRichText
+              html={statementHtml}
+              fallbackText={statement}
+              className="mx-auto min-w-0 w-full max-w-4xl"
+            />
+          </div>
         </section>
-        <section className="min-w-0 rounded-[26px] border border-border/70 bg-background/70 p-4 shadow-sm sm:p-5">
+        <section className="min-w-0 w-full rounded-[26px] border border-border/70 bg-background/70 p-4 shadow-sm sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Assets vinculados</p>
             <span className="text-xs text-muted-foreground">Thumbnail clicável • origem INEP • revisão manual</span>
           </div>
-          <AssetGallery assets={assets} title={sourceLabel} onOpen={setActiveAsset} />
+          <div className="space-y-3">
+            {requiresAssetReview ? (
+              <div className="rounded-[20px] border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-6 text-amber-700 dark:text-amber-300">
+                Asset recuperado ou vinculado exige revisao humana antes de qualquer decisao editorial.
+              </div>
+            ) : null}
+            <AssetGallery
+              assets={assets}
+              title={sourceLabel}
+              requiresReview={requiresAssetReview}
+              onOpen={setActiveAsset}
+            />
+            {!assets.length ? (
+              <div className="rounded-[20px] border border-dashed border-border/70 p-4 text-sm text-muted-foreground">
+                Nenhum asset vinculado a esta questao.
+              </div>
+            ) : null}
+          </div>
         </section>
       </div>
 

@@ -253,6 +253,64 @@ function QuestionRawText({ value }: { value: string }) {
   );
 }
 
+function AuditValue({
+  value,
+  href,
+  compact = false,
+}: {
+  value?: string | number | null;
+  href?: string | null;
+  compact?: boolean;
+}) {
+  const normalized = value === null || value === undefined || value === "" ? "-" : String(value);
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        title={normalized}
+        className={cn(
+          "inline-flex min-w-0 max-w-full items-center gap-1 text-primary underline-offset-4 hover:underline",
+          compact ? "truncate" : "break-all",
+        )}
+      >
+        <span className={compact ? "truncate" : "break-all"}>{normalized}</span>
+        <ExternalLink className="size-3.5 shrink-0" />
+      </a>
+    );
+  }
+
+  return (
+    <span
+      title={normalized}
+      className={cn("block min-w-0 text-foreground", compact ? "truncate" : "break-all")}
+    >
+      {normalized}
+    </span>
+  );
+}
+
+function AuditField({
+  label,
+  value,
+  href,
+  compact = false,
+}: {
+  label: string;
+  value?: string | number | null;
+  href?: string | null;
+  compact?: boolean;
+}) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
+      <AuditValue value={value} href={href} compact={compact} />
+    </div>
+  );
+}
+
 function ReviewCard({
   item,
   selected,
@@ -1091,7 +1149,7 @@ export function ImportReviewAdminView() {
                     </Button>
                   </div>
 
-                  <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,420px)] 2xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,460px)]">
+                  <div className="grid min-w-0 items-start gap-6 2xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,420px)]">
                     <div className="min-w-0 space-y-6">
                       <Card className="min-w-0 overflow-hidden border-border/70 bg-background/60">
                         <CardHeader>
@@ -1103,6 +1161,7 @@ export function ImportReviewAdminView() {
                             statementHtml={renderableStatementHtml}
                             assets={selectedQuestion.assets}
                             sourceLabel="Assets vinculados"
+                            requiresAssetReview={selectedQuestion.requiresAssetReview}
                           />
                           <QuestionRawText value={selectedQuestion.statement} />
                         </CardContent>
@@ -1155,66 +1214,83 @@ export function ImportReviewAdminView() {
                       </Card>
                     </div>
 
-                    <div className="min-w-0 space-y-6 xl:sticky xl:top-24">
-                      <Card className="min-w-0 overflow-hidden border-border/70 bg-background/60">
+                    <div className="min-w-0 space-y-6 2xl:sticky 2xl:top-24">
+                      <Card className="min-w-0 w-full overflow-hidden border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Auditoria e origem</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4 text-sm">
-                          <div className="grid gap-3">
-                            <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                        <CardContent className="min-w-0 space-y-4 text-sm">
+                          <div className="grid min-w-0 gap-3">
+                            <div className="min-w-0 rounded-[20px] border border-border/70 bg-background/70 p-4">
                               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Origem</p>
-                              <div className="mt-3 space-y-2 text-muted-foreground">
-                                <p className="break-words">source: {selectedQuestion.source}</p>
-                                <p className="break-words">externalProvider: {selectedQuestion.externalProvider ?? "-"}</p>
-                                <p>sourceBookColor: {selectedQuestion.sourceBookColor ?? "-"}</p>
-                                <p>sourceDay: {selectedQuestion.sourceDay ?? "-"}</p>
-                                <p>importBatchId: {selectedQuestion.importBatchId ?? "-"}</p>
-                                {selectedQuestion.sourceUrl ? (
-                                  <a
-                                    href={selectedQuestion.sourceUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1 break-words text-primary"
-                                  >
-                                    Abrir sourceUrl
-                                    <ExternalLink className="size-3.5" />
-                                  </a>
-                                ) : null}
+                              <div className="mt-3 grid min-w-0 gap-3 text-muted-foreground">
+                                <AuditField label="source" value={selectedQuestion.source} />
+                                <AuditField label="externalProvider" value={selectedQuestion.externalProvider} compact />
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <AuditField label="sourceBookColor" value={selectedQuestion.sourceBookColor} compact />
+                                  <AuditField label="sourceDay" value={selectedQuestion.sourceDay} compact />
+                                  <AuditField label="importBatchId" value={selectedQuestion.importBatchId} compact />
+                                  <AuditField label="sourcePage" value={selectedQuestion.sourcePage} compact />
+                                </div>
+                                <AuditField
+                                  label="sourceUrl"
+                                  value={selectedQuestion.sourceUrl}
+                                  href={selectedQuestion.sourceUrl}
+                                />
                               </div>
                             </div>
 
-                            <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                            <div className="min-w-0 rounded-[20px] border border-border/70 bg-background/70 p-4">
                               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Fonte oficial</p>
-                              <div className="mt-3 space-y-2 text-muted-foreground">
-                                <p>validatedAgainstOfficialSource: {String(selectedQuestion.validatedAgainstOfficialSource)}</p>
-                                <p>validatedAt: {selectedQuestion.validatedAt ?? "-"}</p>
-                                <p className="break-words">officialSourceUrl: {selectedQuestion.officialSourceUrl ?? "-"}</p>
-                                <p className="break-words">officialPdfUrl: {selectedQuestion.officialPdfUrl ?? "-"}</p>
-                                <p className="break-words">officialAnswerKeyUrl: {selectedQuestion.officialAnswerKeyUrl ?? "-"}</p>
-                                <p>officialPage: {selectedQuestion.officialPage ?? "-"}</p>
+                              <div className="mt-3 grid min-w-0 gap-3 text-muted-foreground">
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <AuditField
+                                    label="validatedAgainstOfficialSource"
+                                    value={String(selectedQuestion.validatedAgainstOfficialSource)}
+                                    compact
+                                  />
+                                  <AuditField label="validatedAt" value={selectedQuestion.validatedAt} compact />
+                                  <AuditField label="officialPage" value={selectedQuestion.officialPage} compact />
+                                </div>
+                                <AuditField
+                                  label="officialSourceUrl"
+                                  value={selectedQuestion.officialSourceUrl}
+                                  href={selectedQuestion.officialSourceUrl}
+                                />
+                                <AuditField
+                                  label="officialPdfUrl"
+                                  value={selectedQuestion.officialPdfUrl}
+                                  href={selectedQuestion.officialPdfUrl}
+                                />
+                                <AuditField
+                                  label="officialAnswerKeyUrl"
+                                  value={selectedQuestion.officialAnswerKeyUrl}
+                                  href={selectedQuestion.officialAnswerKeyUrl}
+                                />
                               </div>
                             </div>
 
-                            <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                            <div className="min-w-0 rounded-[20px] border border-border/70 bg-background/70 p-4">
                               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Checks</p>
-                              <div className="mt-3 space-y-2 text-muted-foreground">
-                                <p className="break-words">statementHash: {selectedQuestion.statementHash}</p>
-                                <p>alternativesCount: {selectedQuestion.alternativesCount}</p>
-                                <p>assetsCount: {selectedQuestion.assetsCount}</p>
-                                <p>autoValidationScore: {selectedQuestion.autoValidationScore}</p>
-                                <p>autoValidationStatus: {selectedQuestion.autoValidationStatus}</p>
-                                <p>autoValidatedAt: {selectedQuestion.autoValidatedAt ?? "-"}</p>
+                              <div className="mt-3 grid min-w-0 gap-3 text-muted-foreground">
+                                <AuditField label="statementHash" value={selectedQuestion.statementHash} />
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <AuditField label="alternativesCount" value={selectedQuestion.alternativesCount} compact />
+                                  <AuditField label="assetsCount" value={selectedQuestion.assetsCount} compact />
+                                  <AuditField label="autoValidationScore" value={selectedQuestion.autoValidationScore} compact />
+                                  <AuditField label="autoValidationStatus" value={selectedQuestion.autoValidationStatus} compact />
+                                  <AuditField label="autoValidatedAt" value={selectedQuestion.autoValidatedAt} compact />
+                                </div>
                               </div>
                             </div>
                             {(autoWarnings.length || autoErrors.length) ? (
-                              <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
+                              <div className="min-w-0 rounded-[20px] border border-border/70 bg-background/70 p-4">
                                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Auto validação</p>
                                 {autoErrors.length ? (
                                   <div className="mt-3 space-y-1">
                                     <p className="text-sm font-semibold text-rose-600">Errors</p>
                                     {autoErrors.map((item) => (
-                                      <p key={item} className="break-words text-muted-foreground">{item}</p>
+                                      <p key={item} className="break-all text-muted-foreground">{item}</p>
                                     ))}
                                   </div>
                                 ) : null}
@@ -1222,7 +1298,7 @@ export function ImportReviewAdminView() {
                                   <div className="mt-3 space-y-1">
                                     <p className="text-sm font-semibold text-amber-600">Warnings</p>
                                     {autoWarnings.map((item) => (
-                                      <p key={item} className="break-words text-muted-foreground">{item}</p>
+                                      <p key={item} className="break-all text-muted-foreground">{item}</p>
                                     ))}
                                   </div>
                                 ) : null}

@@ -92,6 +92,17 @@
     @apply mb-4;
   }
 
+  .question-html,
+  .question-html p,
+  .question-html li,
+  .question-html blockquote,
+  .question-html figcaption,
+  .question-html td,
+  .question-html th {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
   .question-html h1,
   .question-html h2,
   .question-html h3,
@@ -122,6 +133,7 @@
 
   .question-html a {
     @apply font-medium text-primary underline underline-offset-4;
+    overflow-wrap: anywhere;
   }
 
   .question-html ul,
@@ -139,6 +151,8 @@
 
   .question-html table {
     @apply w-full overflow-hidden rounded-2xl border border-border;
+    display: block;
+    overflow-x: auto;
   }
 
   .question-html th,
@@ -156,6 +170,7 @@
 
   .question-html .question-reference {
     @apply mt-5 rounded-2xl bg-muted/50 px-4 py-3 text-xs leading-6 text-muted-foreground;
+    overflow-wrap: anywhere;
   }
 
   .question-html .question-verse {
@@ -168,6 +183,7 @@
 
   .question-html .question-image-placeholder {
     @apply my-4 block rounded-2xl border border-dashed border-amber-400/60 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-200;
+    overflow-wrap: anywhere;
   }
 }
 
