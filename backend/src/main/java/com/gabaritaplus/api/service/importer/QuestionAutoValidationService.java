@@ -337,11 +337,12 @@ public class QuestionAutoValidationService {
                 warnings.add("OFFICIAL_SOURCE_NOT_FOUND");
             }
         } else {
-            attachOfficialSource(question, source.get());
-            warnings.addAll(validateOfficialMetadata(question, source.get()));
-            errors.addAll(validateOfficialAnswerKey(question, source.get()));
-            if (isUnknownBookColor(previousBookColor) && source.get().getBookColor() != null) {
-                question.setSourceBookColor(source.get().getBookColor());
+            OfficialExamSource officialSource = source.orElseThrow();
+            attachOfficialSource(question, officialSource);
+            warnings.addAll(validateOfficialMetadata(question, officialSource));
+            errors.addAll(validateOfficialAnswerKey(question, officialSource));
+            if (isUnknownBookColor(previousBookColor) && officialSource.getBookColor() != null) {
+                question.setSourceBookColor(officialSource.getBookColor());
                 warnings.add("BOOK_COLOR_INFERRED_FROM_OFFICIAL_SOURCE");
             }
         }
@@ -392,8 +393,9 @@ public class QuestionAutoValidationService {
                 errors.add("OFFICIAL_PDF_NOT_FOUND");
             }
         } else {
-            attachOfficialSource(question, source.get());
-            if (source.get().getPdfUrl() == null || source.get().getPdfUrl().isBlank()) {
+            OfficialExamSource officialSource = source.orElseThrow();
+            attachOfficialSource(question, officialSource);
+            if (officialSource.getPdfUrl() == null || officialSource.getPdfUrl().isBlank()) {
                 diagnostics = OfficialPdfAssetRecoveryDiagnostics.builder()
                         .recoveryAttempted(true)
                         .officialSourceFound(true)
@@ -401,7 +403,7 @@ public class QuestionAutoValidationService {
                         .build();
                 errors.add("OFFICIAL_PDF_NOT_FOUND");
             } else if (hasBrokenImageReference(question) || (mentionsVisualAsset(question) && question.getAssets().isEmpty())) {
-                OfficialPdfAssetRecoveryResult result = officialPdfAssetRecoveryService.recover(question, source.get());
+                OfficialPdfAssetRecoveryResult result = officialPdfAssetRecoveryService.recover(question, officialSource);
                 warnings.addAll(result.warnings());
                 errors.addAll(result.errors());
                 diagnostics = result.diagnostics();
@@ -699,9 +701,17 @@ public class QuestionAutoValidationService {
     }
 
     private void initializeQuestionGraph(Question question) {
-        question.getAssets().size();
-        question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
-        question.getAlternatives().size();
+        if (question.getAssets() != null) {
+            question.getAssets().size();
+        }
+        if (question.getAlternatives() != null) {
+            question.getAlternatives().forEach(alternative -> {
+                if (alternative.getAssets() != null) {
+                    alternative.getAssets().size();
+                }
+            });
+            question.getAlternatives().size();
+        }
     }
 
     private boolean hasEmptyAlternative(Question question) {
@@ -729,14 +739,20 @@ public class QuestionAutoValidationService {
     }
 
     private boolean hasSuspiciousText(Question question) {
-        String content = (question.getTitle() + " " + question.getStatement() + " " + question.getStatementHtml());
+        String content = String.join(
+                " ",
+                String.valueOf(question.getTitle()),
+                String.valueOf(question.getStatement()),
+                String.valueOf(question.getStatementHtml())
+        );
         boolean marker = SUSPICIOUS_MARKERS.stream().anyMatch(content::contains);
         boolean cyrillic = content.codePoints().anyMatch(codePoint -> codePoint >= 0x0400 && codePoint <= 0x04FF);
         return marker || cyrillic;
     }
 
     private boolean mentionsVisualAsset(Question question) {
-        String content = (question.getStatement() + " " + question.getStatementHtml()).toLowerCase(Locale.ROOT);
+        String content = (String.valueOf(question.getStatement()) + " " + String.valueOf(question.getStatementHtml()))
+                .toLowerCase(Locale.ROOT);
         return VISUAL_KEYWORDS.stream().anyMatch(content::contains);
     }
 

@@ -31,6 +31,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 @Slf4j
@@ -458,11 +459,11 @@ public class OfficialPdfAssetRecoveryService {
                 && body[offset + 3] == 'F';
     }
 
-    private java.util.Optional<Long> parseLong(String value) {
+    private Optional<Long> parseLong(String value) {
         try {
-            return java.util.Optional.of(Long.parseLong(value));
+            return Optional.of(Long.parseLong(value));
         } catch (NumberFormatException ignored) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
     }
 
@@ -586,7 +587,9 @@ public class OfficialPdfAssetRecoveryService {
 
     private boolean hasAssetWithChecksum(Question question, String checksum) {
         return question.getAssets().stream()
-                .anyMatch(asset -> checksum.equalsIgnoreCase(String.valueOf(asset.getChecksum())));
+                .map(QuestionAsset::getChecksum)
+                .filter(value -> value != null && !value.isBlank())
+                .anyMatch(checksum::equalsIgnoreCase);
     }
 
     private String buildStoragePath(Question question, String checksum) {

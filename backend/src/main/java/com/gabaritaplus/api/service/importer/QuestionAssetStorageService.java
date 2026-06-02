@@ -81,7 +81,10 @@ public class QuestionAssetStorageService {
         }
 
         Path target = Path.of(localRoot).resolve(storagePath).normalize();
-        Files.createDirectories(target.getParent());
+        Path parent = target.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
         Files.write(target, content);
         return new StoredAsset(target.toUri().toString(), target.toString());
     }

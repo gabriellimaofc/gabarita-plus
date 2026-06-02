@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -33,20 +34,23 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private int requestsPerMinute;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
         if (!enabled) {
             filterChain.doFilter(request, response);
             return;
         }
 
         String key = request.getRemoteAddr();
+        if (key == null || key.isBlank()) {
+            key = "unknown-client";
+        }
         WindowCounter counter = counters.computeIfAbsent(key, ignored -> new WindowCounter(Instant.now().getEpochSecond()));
         long currentMinute = Instant.now().getEpochSecond() / 60;
         if (counter.minute() != currentMinute) {
-            counters.put(key, new WindowCounter(currentMinute));
-            counter = counters.get(key);
+            counter = new WindowCounter(currentMinute);
+            counters.put(key, counter);
         }
 
         if (counter.counter().incrementAndGet() > requestsPerMinute) {

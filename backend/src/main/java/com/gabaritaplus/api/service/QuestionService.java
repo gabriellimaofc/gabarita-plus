@@ -46,6 +46,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -235,7 +236,11 @@ public class QuestionService {
                 .findTopByUserIdAndQuestionIdOrderByAttemptNumberDesc(user.getId(), question.getId())
                 .map(answer -> answer.getAttemptNumber() + 1)
                 .orElse(1);
-        boolean correct = question.getCorrectAlternative().equalsIgnoreCase(chosenAlternative);
+        String correctAlternative = question.getCorrectAlternative();
+        if (correctAlternative == null || correctAlternative.isBlank()) {
+            throw new IllegalStateException("Questao sem gabarito nao pode receber resposta.");
+        }
+        boolean correct = correctAlternative.equalsIgnoreCase(chosenAlternative);
 
         UserAnswer answer = new UserAnswer();
         answer.setUser(user);
@@ -359,6 +364,7 @@ public class QuestionService {
 
         return userAnswerRepository.findLatestIncorrectAnswerByQuestionIds(userId, questionIds)
                 .stream()
+                .filter(row -> row.length >= 2 && row[0] instanceof Long && row[1] instanceof OffsetDateTime)
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> ((OffsetDateTime) row[1]).toLocalDate()
@@ -382,7 +388,7 @@ public class QuestionService {
             return true;
         }
 
-        return value != null && value.toLowerCase().contains(filterValue.trim().toLowerCase());
+        return value != null && value.toLowerCase(Locale.ROOT).contains(filterValue.trim().toLowerCase(Locale.ROOT));
     }
 
     private Comparator<ErrorNotebookResponse> buildNotebookComparator() {
@@ -501,7 +507,9 @@ public class QuestionService {
 
     private void validateAlternative(Question question, String chosenAlternative) {
         Set<String> validAlternatives = question.getAlternatives().stream()
-                .map(alternative -> alternative.getLetter().toUpperCase())
+                .map(alternative -> alternative.getLetter())
+                .filter(letter -> letter != null && !letter.isBlank())
+                .map(letter -> letter.toUpperCase(Locale.ROOT))
                 .collect(Collectors.toSet());
 
         if (!validAlternatives.contains(chosenAlternative)) {
@@ -510,7 +518,10 @@ public class QuestionService {
     }
 
     private String normalizeAlternative(String chosenAlternative) {
-        return chosenAlternative.trim().toUpperCase();
+        if (chosenAlternative == null || chosenAlternative.isBlank()) {
+            throw new IllegalArgumentException("Alternativa invalida para esta questao.");
+        }
+        return chosenAlternative.trim().toUpperCase(Locale.ROOT);
     }
 
     private List<QuestionImportStatus> reviewableStatuses() {
