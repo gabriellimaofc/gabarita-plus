@@ -145,7 +145,7 @@ function markdownToHtml(markdown: string | null) {
     imageMap.set(
       token,
       isBroken
-        ? `<div class="rounded-[24px] border border-dashed border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"><strong>Imagem indisponível</strong><p class="mt-2">${safeAlt}</p><p class="mt-1 break-all text-xs">${safeSrc}</p></div>`
+        ? `<div class="rounded-[24px] border border-dashed border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300"><strong>Imagem indisponível</strong><p class="mt-2">${safeAlt}</p><p class="mt-1 break-words text-xs">${safeSrc}</p></div>`
         : `<figure class="space-y-2 rounded-[24px] border border-border/70 bg-background/70 p-3"><img src="${safeSrc}" alt="${safeAlt}" class="max-h-[420px] w-full object-contain rounded-[18px] bg-muted/20" /><figcaption class="text-xs text-muted-foreground">${safeAlt}</figcaption></figure>`,
     );
     return `\n\n${token}\n\n`;
@@ -611,10 +611,10 @@ export function ImportReviewAdminView() {
                     <Badge variant="outline">{source.bookColor || "cor livre"}</Badge>
                     {source.answerKeyMapJson ? <Badge variant="success">Gabarito estruturado</Badge> : <Badge variant="warning">Sem mapa de gabarito</Badge>}
                   </div>
-                  <p className="mt-3 break-all text-muted-foreground">PDF: {source.pdfUrl}</p>
-                  <p className="mt-1 break-all text-muted-foreground">PDF cacheado: {source.cachedPdfUrl ?? source.localPdfPath ?? "-"}</p>
-                  <p className="mt-1 break-all text-muted-foreground">Gabarito: {source.answerKeyUrl ?? "-"}</p>
-                  <p className="mt-1 break-all text-muted-foreground">Gabarito cacheado: {source.cachedAnswerKeyUrl ?? "-"}</p>
+                  <p className="mt-3 break-words text-muted-foreground">PDF: {source.pdfUrl}</p>
+                  <p className="mt-1 break-words text-muted-foreground">PDF cacheado: {source.cachedPdfUrl ?? source.localPdfPath ?? "-"}</p>
+                  <p className="mt-1 break-words text-muted-foreground">Gabarito: {source.answerKeyUrl ?? "-"}</p>
+                  <p className="mt-1 break-words text-muted-foreground">Gabarito cacheado: {source.cachedAnswerKeyUrl ?? "-"}</p>
                   <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                     Recuperação de assets: {source.cachedPdfUrl ? "usa cache se o INEP falhar" : "usa URL oficial"}
                   </p>
@@ -787,14 +787,14 @@ export function ImportReviewAdminView() {
                         </span>
                       ) : null}
                       {item.pdfUrlUsed ? (
-                        <span className="break-all md:col-span-2 xl:col-span-3">PDF usado: {item.pdfUrlUsed}</span>
+                        <span className="break-words md:col-span-2 xl:col-span-3">PDF usado: {item.pdfUrlUsed}</span>
                       ) : null}
                       {item.cachedPdfUrlUsed ? (
-                        <span className="break-all md:col-span-2 xl:col-span-3">PDF cacheado usado: {item.cachedPdfUrlUsed}</span>
+                        <span className="break-words md:col-span-2 xl:col-span-3">PDF cacheado usado: {item.cachedPdfUrlUsed}</span>
                       ) : null}
                       {item.assetUrl ? (
                         <a
-                          className="break-all font-medium text-primary underline-offset-4 hover:underline md:col-span-2 xl:col-span-3"
+                          className="break-words font-medium text-primary underline-offset-4 hover:underline md:col-span-2 xl:col-span-3"
                           href={item.assetUrl}
                           target="_blank"
                           rel="noreferrer"
@@ -817,8 +817,8 @@ export function ImportReviewAdminView() {
         </Card>
       ) : null}
 
-      <div className="grid items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card className="overflow-hidden xl:sticky xl:top-24">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+        <Card className="min-w-0 overflow-hidden xl:sticky xl:top-24">
           <CardHeader className="border-b border-border/70">
             <div className="flex items-center justify-between gap-3">
               <CardTitle>Fila de revisão</CardTitle>
@@ -1091,9 +1091,9 @@ export function ImportReviewAdminView() {
                     </Button>
                   </div>
 
-                  <div className="grid min-w-0 items-start gap-6 2xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
+                  <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,420px)] 2xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,460px)]">
                     <div className="min-w-0 space-y-6">
-                      <Card className="min-w-0 border-border/70 bg-background/60">
+                      <Card className="min-w-0 overflow-hidden border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Enunciado completo</CardTitle>
                         </CardHeader>
@@ -1108,7 +1108,7 @@ export function ImportReviewAdminView() {
                         </CardContent>
                       </Card>
 
-                      <Card className="min-w-0 border-border/70 bg-background/60">
+                      <Card className="min-w-0 overflow-hidden border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Alternativas e gabarito</CardTitle>
                         </CardHeader>
@@ -1155,8 +1155,8 @@ export function ImportReviewAdminView() {
                       </Card>
                     </div>
 
-                    <div className="min-w-0 space-y-6 2xl:sticky 2xl:top-24">
-                      <Card className="min-w-0 border-border/70 bg-background/60">
+                    <div className="min-w-0 space-y-6 xl:sticky xl:top-24">
+                      <Card className="min-w-0 overflow-hidden border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Auditoria e origem</CardTitle>
                         </CardHeader>
@@ -1165,8 +1165,8 @@ export function ImportReviewAdminView() {
                             <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
                               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Origem</p>
                               <div className="mt-3 space-y-2 text-muted-foreground">
-                                <p className="break-all">source: {selectedQuestion.source}</p>
-                                <p className="break-all">externalProvider: {selectedQuestion.externalProvider ?? "-"}</p>
+                                <p className="break-words">source: {selectedQuestion.source}</p>
+                                <p className="break-words">externalProvider: {selectedQuestion.externalProvider ?? "-"}</p>
                                 <p>sourceBookColor: {selectedQuestion.sourceBookColor ?? "-"}</p>
                                 <p>sourceDay: {selectedQuestion.sourceDay ?? "-"}</p>
                                 <p>importBatchId: {selectedQuestion.importBatchId ?? "-"}</p>
@@ -1175,7 +1175,7 @@ export function ImportReviewAdminView() {
                                     href={selectedQuestion.sourceUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-1 break-all text-primary"
+                                    className="inline-flex items-center gap-1 break-words text-primary"
                                   >
                                     Abrir sourceUrl
                                     <ExternalLink className="size-3.5" />
@@ -1189,9 +1189,9 @@ export function ImportReviewAdminView() {
                               <div className="mt-3 space-y-2 text-muted-foreground">
                                 <p>validatedAgainstOfficialSource: {String(selectedQuestion.validatedAgainstOfficialSource)}</p>
                                 <p>validatedAt: {selectedQuestion.validatedAt ?? "-"}</p>
-                                <p className="break-all">officialSourceUrl: {selectedQuestion.officialSourceUrl ?? "-"}</p>
-                                <p className="break-all">officialPdfUrl: {selectedQuestion.officialPdfUrl ?? "-"}</p>
-                                <p className="break-all">officialAnswerKeyUrl: {selectedQuestion.officialAnswerKeyUrl ?? "-"}</p>
+                                <p className="break-words">officialSourceUrl: {selectedQuestion.officialSourceUrl ?? "-"}</p>
+                                <p className="break-words">officialPdfUrl: {selectedQuestion.officialPdfUrl ?? "-"}</p>
+                                <p className="break-words">officialAnswerKeyUrl: {selectedQuestion.officialAnswerKeyUrl ?? "-"}</p>
                                 <p>officialPage: {selectedQuestion.officialPage ?? "-"}</p>
                               </div>
                             </div>
@@ -1199,7 +1199,7 @@ export function ImportReviewAdminView() {
                             <div className="rounded-[20px] border border-border/70 bg-background/70 p-4">
                               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Checks</p>
                               <div className="mt-3 space-y-2 text-muted-foreground">
-                                <p className="break-all">statementHash: {selectedQuestion.statementHash}</p>
+                                <p className="break-words">statementHash: {selectedQuestion.statementHash}</p>
                                 <p>alternativesCount: {selectedQuestion.alternativesCount}</p>
                                 <p>assetsCount: {selectedQuestion.assetsCount}</p>
                                 <p>autoValidationScore: {selectedQuestion.autoValidationScore}</p>
@@ -1232,7 +1232,7 @@ export function ImportReviewAdminView() {
                       </CardContent>
                       </Card>
 
-                      <Card className="min-w-0 border-border/70 bg-background/60">
+                      <Card className="min-w-0 overflow-hidden border-border/70 bg-background/60">
                         <CardHeader>
                           <CardTitle>Validação manual com INEP</CardTitle>
                         </CardHeader>

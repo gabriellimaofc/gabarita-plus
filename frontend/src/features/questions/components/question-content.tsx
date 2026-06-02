@@ -279,7 +279,7 @@ export function QuestionRichText({
   if (renderedHtml) {
     return (
       <div
-        className={cn("question-html text-[0.98rem] leading-8 text-foreground", className)}
+        className={cn("question-html min-w-0 max-w-none text-[0.98rem] leading-7 text-foreground", className)}
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
     );
@@ -306,10 +306,10 @@ function AssetImage({
   }
 
   return (
-    <div className="overflow-hidden rounded-[24px] border border-border/70 bg-background/80">
+    <div className="min-w-0 overflow-hidden rounded-[24px] border border-border/70 bg-background/80 shadow-sm">
       <button
         type="button"
-        className="block w-full"
+        className="block w-full cursor-zoom-in"
         onClick={() => onOpen(asset)}
         aria-label={asset.altText ?? "Ampliar imagem da questão"}
       >
@@ -318,7 +318,7 @@ function AssetImage({
           src={asset.url}
           alt={asset.altText ?? "Recurso visual da questão"}
           loading="lazy"
-          className="max-h-[420px] w-full object-contain bg-muted/20"
+          className="mx-auto max-h-[320px] w-full max-w-[420px] object-contain bg-muted/20 md:max-h-[380px]"
           onError={() => setBroken(true)}
         />
       </button>
@@ -352,9 +352,9 @@ function AssetGallery({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {title ? <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{title}</p> : null}
-      <div className="grid gap-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
         {assets.map((asset) => (
           <AssetImage key={asset.id} asset={asset} onOpen={onOpen} />
         ))}
@@ -378,9 +378,21 @@ export function QuestionContent({
 
   return (
     <>
-      <div className="space-y-5">
-        <QuestionRichText html={statementHtml} fallbackText={statement} />
-        <AssetGallery assets={assets} title={sourceLabel} onOpen={setActiveAsset} />
+      <div className="min-w-0 space-y-5">
+        <section className="min-w-0 rounded-[26px] border border-border/70 bg-background/70 p-4 shadow-sm sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Enunciado</p>
+            <span className="text-xs text-muted-foreground">Texto legível e sem colapso de largura</span>
+          </div>
+          <QuestionRichText html={statementHtml} fallbackText={statement} className="min-w-0" />
+        </section>
+        <section className="min-w-0 rounded-[26px] border border-border/70 bg-background/70 p-4 shadow-sm sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Assets vinculados</p>
+            <span className="text-xs text-muted-foreground">Thumbnail clicável • origem INEP • revisão manual</span>
+          </div>
+          <AssetGallery assets={assets} title={sourceLabel} onOpen={setActiveAsset} />
+        </section>
       </div>
 
       {activeAsset?.url ? (
