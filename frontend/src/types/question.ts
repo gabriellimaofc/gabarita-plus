@@ -158,6 +158,20 @@ export interface ReviewQuestionStatusPayload {
   importStatus: Exclude<QuestionImportStatus, "PUBLISHED">;
 }
 
+export interface ReviewQuestionUpdatePayload {
+  statement?: string;
+  topic?: string;
+  subtopic?: string | null;
+  difficulty?: DifficultyLevel;
+}
+
+export interface ReviewQuestionAssetCropPayload {
+  cropX: number;
+  cropY: number;
+  cropWidth: number;
+  cropHeight: number;
+}
+
 export interface ReviewOfficialValidationPayload {
   officialSourceUrl?: string;
   officialPdfUrl?: string;

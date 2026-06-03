@@ -7,9 +7,11 @@ import { getErrorMessage } from "@/lib/api-error";
 import { adminImportService } from "@/services/admin-import.service";
 import type {
   OfficialExamSourcePayload,
+  ReviewQuestionAssetCropPayload,
   ReviewOfficialValidationPayload,
   ReviewQuestionFilters,
   ReviewQuestionStatusPayload,
+  ReviewQuestionUpdatePayload,
 } from "@/types/question";
 
 export function useReviewQuestions(filters: ReviewQuestionFilters) {
@@ -86,6 +88,23 @@ export function useUpdateReviewStatus() {
   });
 }
 
+export function useUpdateReviewQuestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: ReviewQuestionUpdatePayload }) =>
+      adminImportService.updateReviewQuestion(id, payload),
+    onSuccess: (question) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.setQueryData(["admin-review-question", question.id], question);
+      toast.success("Questão em revisão atualizada.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Não foi possível salvar a edição da questão.")),
+  });
+}
+
 export function useValidateOfficialSource() {
   const queryClient = useQueryClient();
 
@@ -139,6 +158,47 @@ export function useRemoveReviewAsset() {
     },
     onError: (error) =>
       toast.error(getErrorMessage(error, "Não foi possível remover o asset da questão.")),
+  });
+}
+
+export function useUpdateReviewAssetCrop() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      questionId,
+      assetId,
+      payload,
+    }: {
+      questionId: number;
+      assetId: number;
+      payload: ReviewQuestionAssetCropPayload;
+    }) => adminImportService.updateReviewAssetCrop(questionId, assetId, payload),
+    onSuccess: (question) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.setQueryData(["admin-review-question", question.id], question);
+      toast.success("Crop do asset atualizado.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Não foi possível atualizar o crop do asset.")),
+  });
+}
+
+export function useApproveReviewAsset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ questionId, assetId }: { questionId: number; assetId: number }) =>
+      adminImportService.approveReviewAsset(questionId, assetId),
+    onSuccess: (question) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.setQueryData(["admin-review-question", question.id], question);
+      toast.success("Asset aprovado manualmente.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Não foi possível aprovar o asset.")),
   });
 }
 

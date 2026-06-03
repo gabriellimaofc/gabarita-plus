@@ -27,6 +27,7 @@ import {
   useAutoPublishSafe,
   useAutoValidateBatch,
   useAutoValidateQuestion,
+  useApproveReviewAsset,
   useCreateOfficialSource,
   useDeleteOfficialSource,
   useOfficialSources,
@@ -37,6 +38,8 @@ import {
   useReviewCounters,
   useReviewQuestion,
   useReviewQuestions,
+  useUpdateReviewAssetCrop,
+  useUpdateReviewQuestion,
   useUpdateReviewStatus,
   useValidateAgainstOfficialSource,
   useValidateAgainstOfficialSourceBatch,
@@ -47,13 +50,17 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import type {
   AutoValidationStatus,
+  DifficultyLevel,
   OfficialExamSourcePayload,
   OfficialValidationReport,
   QuestionImportStatus,
+  QuestionAsset,
   ReviewOfficialValidationPayload,
   ReviewQuestionDetail,
+  ReviewQuestionAssetCropPayload,
   ReviewQuestionFilters,
   ReviewQuestionSummary,
+  ReviewQuestionUpdatePayload,
 } from "@/types/question";
 
 const statusOptions: Array<{ value: QuestionImportStatus | ""; label: string }> = [
@@ -123,6 +130,10 @@ function autoStatusBadgeVariant(status: AutoValidationStatus) {
 
 function splitMessages(value?: string | null) {
   return value?.split(/\n+/).map((item) => item.trim()).filter(Boolean) ?? [];
+}
+
+function normalizeSuspiciousStatement(value: string) {
+  return value.replaceAll("ТЕХТО", "TEXTO").replaceAll("Техто", "Texto").replaceAll("техто", "texto");
 }
 
 function escapeHtml(value: string) {
@@ -500,6 +511,19 @@ export function ImportReviewAdminView() {
     answerKeyMapJson: "",
   });
   const [officialValidationReport, setOfficialValidationReport] = useState<OfficialValidationReport | null>(null);
+  const [editForm, setEditForm] = useState<ReviewQuestionUpdatePayload>({
+    statement: "",
+    topic: "",
+    subtopic: "",
+    difficulty: "MEDIUM",
+  });
+  const [selectedAssetId, setSelectedAssetId] = useState<number | null>(null);
+  const [cropForm, setCropForm] = useState<ReviewQuestionAssetCropPayload>({
+    cropX: 0,
+    cropY: 0,
+    cropWidth: 1,
+    cropHeight: 1,
+  });
 
   const reviewQuery = useReviewQuestions(filters);
   const countersQuery = useReviewCounters();
@@ -508,7 +532,10 @@ export function ImportReviewAdminView() {
   const updateStatus = useUpdateReviewStatus();
   const validateOfficial = useValidateOfficialSource();
   const publishQuestion = usePublishReviewQuestion();
+  const updateReviewQuestion = useUpdateReviewQuestion();
   const removeReviewAsset = useRemoveReviewAsset();
+  const updateReviewAssetCrop = useUpdateReviewAssetCrop();
+  const approveReviewAsset = useApproveReviewAsset();
   const autoValidateQuestion = useAutoValidateQuestion();
   const autoValidateBatch = useAutoValidateBatch();
   const autoPublishSafe = useAutoPublishSafe();
@@ -543,13 +570,43 @@ export function ImportReviewAdminView() {
       officialAnswerKeyUrl: detailQuery.data.officialAnswerKeyUrl ?? "",
       officialPage: detailQuery.data.officialPage,
     });
+    setEditForm({
+      statement: detailQuery.data.statement,
+      topic: detailQuery.data.topic,
+      subtopic: detailQuery.data.subtopic ?? "",
+      difficulty: detailQuery.data.difficulty,
+    });
+    const firstAsset = detailQuery.data.assets[0] ?? null;
+    setSelectedAssetId(firstAsset?.id ?? null);
+    setCropForm({
+      cropX: firstAsset?.cropX ?? 0,
+      cropY: firstAsset?.cropY ?? 0,
+      cropWidth: firstAsset?.cropWidth ?? 1,
+      cropHeight: firstAsset?.cropHeight ?? 1,
+    });
   }, [detailQuery.data]);
+
+  useEffect(() => {
+    const currentAsset =
+      detailQuery.data?.assets.find((asset) => asset.id === selectedAssetId) ?? detailQuery.data?.assets[0] ?? null;
+    if (!currentAsset) {
+      return;
+    }
+    setCropForm({
+      cropX: currentAsset.cropX ?? 0,
+      cropY: currentAsset.cropY ?? 0,
+      cropWidth: currentAsset.cropWidth ?? 1,
+      cropHeight: currentAsset.cropHeight ?? 1,
+    });
+  }, [detailQuery.data, selectedAssetId]);
 
   const selectedIndex = reviewItems.findIndex((item) => item.id === selectedId);
   const previousItem = selectedIndex > 0 ? reviewItems[selectedIndex - 1] : null;
   const nextItem =
     selectedIndex >= 0 && selectedIndex < reviewItems.length - 1 ? reviewItems[selectedIndex + 1] : null;
   const selectedQuestion = detailQuery.data;
+  const selectedAsset =
+    selectedQuestion?.assets.find((asset) => asset.id === selectedAssetId) ?? selectedQuestion?.assets[0] ?? null;
   const alerts = useMemo(() => (selectedQuestion ? buildAlerts(selectedQuestion) : []), [selectedQuestion]);
   const autoWarnings = splitMessages(selectedQuestion?.autoValidationWarnings);
   const autoErrors = splitMessages(selectedQuestion?.autoValidationErrors);
@@ -1134,6 +1191,96 @@ export function ImportReviewAdminView() {
                       ) : null}
                     </div>
 
+                    <div className="space-y-4 rounded-[22px] border border-border/70 bg-background/70 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold">Editar enunciado</p>
+                        {editForm.statement?.includes("ТЕХТО") ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setEditForm((current) => ({
+                                ...current,
+                                statement: normalizeSuspiciousStatement(current.statement ?? ""),
+                              }))
+                            }
+                          >
+                            Corrigir TEXTO II
+                          </Button>
+                        ) : null}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="review-statement">Enunciado</Label>
+                        <Textarea
+                          id="review-statement"
+                          value={editForm.statement ?? ""}
+                          onChange={(event) =>
+                            setEditForm((current) => ({ ...current, statement: event.target.value }))
+                          }
+                          className="min-h-40 leading-6"
+                        />
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="review-topic">Topic</Label>
+                          <Input
+                            id="review-topic"
+                            value={editForm.topic ?? ""}
+                            onChange={(event) =>
+                              setEditForm((current) => ({ ...current, topic: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="review-subtopic">Subtopic</Label>
+                          <Input
+                            id="review-subtopic"
+                            value={editForm.subtopic ?? ""}
+                            onChange={(event) =>
+                              setEditForm((current) => ({ ...current, subtopic: event.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="review-difficulty">Dificuldade</Label>
+                          <select
+                            id="review-difficulty"
+                            className="flex h-11 w-full rounded-2xl border border-border bg-background/70 px-4 py-2 text-sm"
+                            value={editForm.difficulty ?? "MEDIUM"}
+                            onChange={(event) =>
+                              setEditForm((current) => ({
+                                ...current,
+                                difficulty: event.target.value as DifficultyLevel,
+                              }))
+                            }
+                          >
+                            <option value="EASY">EASY</option>
+                            <option value="MEDIUM">MEDIUM</option>
+                            <option value="HARD">HARD</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="secondary"
+                          onClick={() =>
+                            updateReviewQuestion.mutate({
+                              id: selectedQuestion.id,
+                              payload: {
+                                statement: editForm.statement,
+                                topic: editForm.topic,
+                                subtopic: editForm.subtopic ?? "",
+                                difficulty: editForm.difficulty,
+                              },
+                            })
+                          }
+                          disabled={updateReviewQuestion.isPending}
+                        >
+                          Salvar enunciado
+                        </Button>
+                      </div>
+                    </div>
+
                     <QuestionContent
                       statement={selectedQuestion.statement}
                       statementHtml={renderableStatementHtml}
@@ -1150,6 +1297,119 @@ export function ImportReviewAdminView() {
                         });
                       }}
                     />
+
+                    {selectedAsset ? (
+                      <div className="space-y-4 rounded-[22px] border border-border/70 bg-background/70 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold">Revisão manual do asset</p>
+                          {selectedQuestion.requiresAssetReview ? (
+                            <Badge variant="warning">Revisão manual pendente</Badge>
+                          ) : (
+                            <Badge variant="success">Asset aprovado</Badge>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="selected-asset">Asset</Label>
+                          <select
+                            id="selected-asset"
+                            className="flex h-11 w-full rounded-2xl border border-border bg-background/70 px-4 py-2 text-sm"
+                            value={selectedAsset.id}
+                            onChange={(event) => setSelectedAssetId(Number(event.target.value))}
+                          >
+                            {selectedQuestion.assets.map((asset) => (
+                              <option key={asset.id} value={asset.id}>
+                                Asset #{asset.id} - página {asset.sourcePage ?? "-"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="crop-x">cropX</Label>
+                            <Input
+                              id="crop-x"
+                              type="number"
+                              value={cropForm.cropX}
+                              onChange={(event) =>
+                                setCropForm((current) => ({
+                                  ...current,
+                                  cropX: Number(event.target.value || 0),
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="crop-y">cropY</Label>
+                            <Input
+                              id="crop-y"
+                              type="number"
+                              value={cropForm.cropY}
+                              onChange={(event) =>
+                                setCropForm((current) => ({
+                                  ...current,
+                                  cropY: Number(event.target.value || 0),
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="crop-width">cropWidth</Label>
+                            <Input
+                              id="crop-width"
+                              type="number"
+                              value={cropForm.cropWidth}
+                              onChange={(event) =>
+                                setCropForm((current) => ({
+                                  ...current,
+                                  cropWidth: Number(event.target.value || 1),
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="crop-height">cropHeight</Label>
+                            <Input
+                              id="crop-height"
+                              type="number"
+                              value={cropForm.cropHeight}
+                              onChange={(event) =>
+                                setCropForm((current) => ({
+                                  ...current,
+                                  cropHeight: Number(event.target.value || 1),
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              updateReviewAssetCrop.mutate({
+                                questionId: selectedQuestion.id,
+                                assetId: selectedAsset.id,
+                                payload: cropForm,
+                              })
+                            }
+                            disabled={updateReviewAssetCrop.isPending}
+                          >
+                            Ajustar crop
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() =>
+                              approveReviewAsset.mutate({
+                                questionId: selectedQuestion.id,
+                                assetId: selectedAsset.id,
+                              })
+                            }
+                            disabled={approveReviewAsset.isPending}
+                          >
+                            Aprovar asset
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
 
                     <QuestionRawText value={selectedQuestion.statement} />
                   </CardContent>

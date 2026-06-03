@@ -2,6 +2,8 @@ package com.gabaritaplus.api.service;
 
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewDetailResponse;
 import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSummaryResponse;
+import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionReviewRequest;
+import com.gabaritaplus.api.dto.importer.review.UpdateQuestionAssetCropRequest;
 import com.gabaritaplus.api.dto.importer.review.ValidateOfficialSourceRequest;
 import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionStatusRequest;
 import com.gabaritaplus.api.dto.question.ErrorNotebookFilterRequest;
@@ -15,6 +17,8 @@ import com.gabaritaplus.api.dto.question.UserAnswerResponse;
 import com.gabaritaplus.api.entity.ErrorNotebook;
 import com.gabaritaplus.api.entity.FavoriteQuestion;
 import com.gabaritaplus.api.entity.Question;
+import com.gabaritaplus.api.entity.QuestionAsset;
+import com.gabaritaplus.api.entity.OfficialExamSource;
 import com.gabaritaplus.api.entity.User;
 import com.gabaritaplus.api.entity.UserAnswer;
 import com.gabaritaplus.api.entity.enums.MasteryStatus;
@@ -29,6 +33,7 @@ import com.gabaritaplus.api.repository.QuestionRepository;
 import com.gabaritaplus.api.repository.UserAnswerRepository;
 import com.gabaritaplus.api.service.importer.QuestionImportSupport;
 import com.gabaritaplus.api.service.importer.QuestionAutoValidationService;
+import com.gabaritaplus.api.service.importer.OfficialPdfAssetRecoveryService;
 import com.gabaritaplus.api.specification.QuestionSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +70,7 @@ public class QuestionService {
     private final AuthenticatedUserService authenticatedUserService;
     private final QuestionImportSupport questionImportSupport;
     private final QuestionAutoValidationService questionAutoValidationService;
+    private final OfficialPdfAssetRecoveryService officialPdfAssetRecoveryService;
 
     @Transactional
     public QuestionResponse create(QuestionRequest request) {
@@ -160,6 +166,96 @@ public class QuestionService {
         }
 
         questionAutoValidationService.applyAutoValidation(question);
+        Question saved = questionRepository.save(question);
+        initializeQuestionGraph(saved);
+        return toAdminReviewDetailResponse(saved);
+    }
+
+    @Transactional
+    public AdminImportedQuestionReviewDetailResponse updateReviewQuestion(
+            Long id,
+            UpdateImportedQuestionReviewRequest request
+    ) {
+        Question question = getQuestionEntity(id);
+        if (request.statement() != null && !request.statement().isBlank()) {
+            question.setStatement(normalizeSuspiciousHomoglyphs(request.statement().trim()));
+        }
+        if (request.topic() != null && !request.topic().isBlank()) {
+            question.setTopic(request.topic().trim());
+        }
+        if (request.subtopic() != null) {
+            question.setSubtopic(request.subtopic().isBlank() ? null : request.subtopic().trim());
+        }
+        if (request.difficulty() != null) {
+            question.setDifficulty(request.difficulty());
+        }
+        if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
+            question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+        }
+        question.setStatementHash(questionImportSupport.generateStatementHash(question.getStatement(), question.getStatementHtml()));
+        questionAutoValidationService.applyAutoValidation(question);
+        if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
+            question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+        }
+        Question saved = questionRepository.save(question);
+        initializeQuestionGraph(saved);
+        return toAdminReviewDetailResponse(saved);
+    }
+
+    @Transactional
+    public AdminImportedQuestionReviewDetailResponse updateReviewQuestionAssetCrop(
+            Long questionId,
+            Long assetId,
+            UpdateQuestionAssetCropRequest request
+    ) {
+        Question question = getQuestionEntity(questionId);
+        initializeQuestionGraph(question);
+        QuestionAsset asset = question.getAssets().stream()
+                .filter(item -> item.getId().equals(assetId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Asset da questão não encontrado."));
+
+        OfficialExamSource source = resolveOfficialSourceForQuestion(question);
+        officialPdfAssetRecoveryService.recropOfficialAsset(
+                question,
+                asset,
+                source,
+                request.cropX(),
+                request.cropY(),
+                request.cropWidth(),
+                request.cropHeight()
+        );
+        question.setRequiresAssetReview(true);
+        if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
+            question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+        }
+        questionAutoValidationService.applyAutoValidation(question);
+        appendWarning(question, "ASSET_RECOVERY_NEEDS_REVIEW");
+        if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
+            question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+        }
+        Question saved = questionRepository.save(question);
+        initializeQuestionGraph(saved);
+        return toAdminReviewDetailResponse(saved);
+    }
+
+    @Transactional
+    public AdminImportedQuestionReviewDetailResponse approveReviewQuestionAsset(Long questionId, Long assetId) {
+        Question question = getQuestionEntity(questionId);
+        initializeQuestionGraph(question);
+        QuestionAsset asset = question.getAssets().stream()
+                .filter(item -> item.getId().equals(assetId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Asset da questão não encontrado."));
+        asset.setCaption("Asset oficial aprovado manualmente para revisão.");
+        question.setRequiresAssetReview(false);
+        if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
+            question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+        }
+        questionAutoValidationService.applyAutoValidation(question);
+        if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
+            question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
+        }
         Question saved = questionRepository.save(question);
         initializeQuestionGraph(saved);
         return toAdminReviewDetailResponse(saved);
@@ -572,6 +668,38 @@ public class QuestionService {
         return subject.trim();
     }
 
+    private OfficialExamSource resolveOfficialSourceForQuestion(Question question) {
+        if (question.getSourceExam() == null || question.getSourceYear() == null || question.getSourceDay() == null) {
+            throw new ResourceNotFoundException("Fonte oficial da questão não encontrada para recrop.");
+        }
+        return questionAutoValidationService.listOfficialSources().stream()
+                .filter(source -> source.exam().equalsIgnoreCase(question.getSourceExam()))
+                .filter(source -> source.year() == question.getSourceYear())
+                .filter(source -> java.util.Objects.equals(source.day(), question.getSourceDay()))
+                .filter(source -> question.getSourceBookColor() == null
+                        || question.getSourceBookColor().isBlank()
+                        || "UNKNOWN".equalsIgnoreCase(question.getSourceBookColor())
+                        || java.util.Objects.equals(source.bookColor(), question.getSourceBookColor()))
+                .findFirst()
+                .map(source -> {
+                    OfficialExamSource entity = new OfficialExamSource();
+                    entity.setId(source.id());
+                    entity.setExam(source.exam());
+                    entity.setYear(source.year());
+                    entity.setDay(source.day());
+                    entity.setBookColor(source.bookColor());
+                    entity.setPdfUrl(source.pdfUrl());
+                    entity.setAnswerKeyUrl(source.answerKeyUrl());
+                    entity.setSourceUrl(source.sourceUrl());
+                    entity.setLocalPdfPath(source.localPdfPath());
+                    entity.setCachedPdfUrl(source.cachedPdfUrl());
+                    entity.setCachedAnswerKeyUrl(source.cachedAnswerKeyUrl());
+                    entity.setAnswerKeyMapJson(source.answerKeyMapJson());
+                    return entity;
+                })
+                .orElseThrow(() -> new ResourceNotFoundException("Fonte oficial da questão não encontrada para recrop."));
+    }
+
     private void initializeQuestionGraph(Question question) {
         question.getAssets().size();
         question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
@@ -702,6 +830,29 @@ public class QuestionService {
 
     private boolean containsBrokenImageUrl(String value) {
         return value != null && value.toLowerCase().contains("broken-image");
+    }
+
+    private void appendWarning(Question question, String warning) {
+        if (warning == null || warning.isBlank()) {
+            return;
+        }
+        List<String> warnings = new java.util.ArrayList<>();
+        if (question.getAutoValidationWarnings() != null && !question.getAutoValidationWarnings().isBlank()) {
+            warnings.addAll(List.of(question.getAutoValidationWarnings().split("\\n+")));
+        }
+        warnings.add(warning);
+        question.setAutoValidationWarnings(String.join("\n", warnings.stream()
+                .map(String::trim)
+                .filter(item -> !item.isBlank())
+                .distinct()
+                .toList()));
+    }
+
+    private String normalizeSuspiciousHomoglyphs(String value) {
+        return value
+                .replace("ТЕХТО", "TEXTO")
+                .replace("Техто", "Texto")
+                .replace("техто", "texto");
     }
 
     private void updateErrorNotebook(User user, Question question, boolean correct) {

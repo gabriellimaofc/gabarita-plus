@@ -226,7 +226,8 @@ public class QuestionAutoValidationService {
         boolean requiredOriginFields = question.getSourceYear() != null
                 && question.getSourceQuestionNumber() != null
                 && question.getSourceDay() != null;
-        boolean requiresAssetReview = mentionsVisualAsset(question) && question.getAssets().isEmpty();
+        boolean requiresAssetReview = Boolean.TRUE.equals(question.getRequiresAssetReview())
+                || (mentionsVisualAsset(question) && question.getAssets().isEmpty());
         boolean officialValidated = Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource());
 
         if (hasFiveAlternatives) {

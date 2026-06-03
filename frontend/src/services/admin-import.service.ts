@@ -8,10 +8,12 @@ import type {
   OfficialExamSourcePayload,
   OfficialValidationReport,
   ReviewOfficialValidationPayload,
+  ReviewQuestionAssetCropPayload,
   ReviewQuestionDetail,
   ReviewQuestionFilters,
   ReviewQuestionListResponse,
   ReviewQuestionStatusPayload,
+  ReviewQuestionUpdatePayload,
   ReviewQuestionSummary,
 } from "@/types/question";
 
@@ -68,6 +70,14 @@ export const adminImportService = {
     return unwrapResponse(response);
   },
 
+  async updateReviewQuestion(id: number, payload: ReviewQuestionUpdatePayload) {
+    const response = await apiClient.patch<ApiResponse<ReviewQuestionDetail>>(
+      `/admin/import/questions/review/${id}`,
+      payload,
+    );
+    return unwrapResponse(response);
+  },
+
   async validateOfficialSource(id: number, payload: ReviewOfficialValidationPayload) {
     const response = await apiClient.patch<ApiResponse<ReviewQuestionDetail>>(
       `/admin/import/questions/review/${id}/validate-official-source`,
@@ -86,6 +96,21 @@ export const adminImportService = {
   async removeReviewAsset(questionId: number, assetId: number) {
     const response = await apiClient.delete<ApiResponse<ReviewQuestionDetail>>(
       `/admin/import/questions/review/${questionId}/assets/${assetId}`,
+    );
+    return unwrapResponse(response);
+  },
+
+  async updateReviewAssetCrop(questionId: number, assetId: number, payload: ReviewQuestionAssetCropPayload) {
+    const response = await apiClient.patch<ApiResponse<ReviewQuestionDetail>>(
+      `/admin/import/questions/review/${questionId}/assets/${assetId}/crop`,
+      payload,
+    );
+    return unwrapResponse(response);
+  },
+
+  async approveReviewAsset(questionId: number, assetId: number) {
+    const response = await apiClient.patch<ApiResponse<ReviewQuestionDetail>>(
+      `/admin/import/questions/review/${questionId}/assets/${assetId}/approve`,
     );
     return unwrapResponse(response);
   },

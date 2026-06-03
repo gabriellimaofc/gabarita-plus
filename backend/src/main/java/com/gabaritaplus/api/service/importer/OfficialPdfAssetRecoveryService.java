@@ -182,6 +182,7 @@ public class OfficialPdfAssetRecoveryService {
                     QuestionAsset asset = buildAsset(question, storedAsset, storagePath, pageIndex, crop, checksum);
                     question.getAssets().add(asset);
                     question.setOfficialPage(pageIndex + 1);
+                    question.setRequiresAssetReview(true);
                     clearBrokenImageReferences(question);
                     warnings.add("ASSET_RECOVERED_FROM_OFFICIAL_PDF");
                 } catch (Exception exception) {
@@ -851,6 +852,58 @@ public class OfficialPdfAssetRecoveryService {
                 question.getSourceQuestionNumber(),
                 checksum.substring(0, 16)
         );
+    }
+
+    public QuestionAsset recropOfficialAsset(
+            Question question,
+            QuestionAsset asset,
+            OfficialExamSource source,
+            int cropX,
+            int cropY,
+            int cropWidth,
+            int cropHeight
+    ) {
+        try {
+            Path pdfPath = resolveOfficialPdf(source, OfficialPdfAssetRecoveryDiagnostics.builder()
+                    .recoveryAttempted(true)
+                    .officialSourceFound(true)
+                    .languageOptionDetected(detectQuestionLanguageOption(question).name()));
+            try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
+                Integer pageNumber = asset.getSourcePage() != null ? asset.getSourcePage() : question.getOfficialPage();
+                if (pageNumber == null || pageNumber <= 0 || pageNumber > document.getNumberOfPages()) {
+                    throw new PdfRecoveryException("QUESTION_PAGE_NOT_FOUND");
+                }
+                PDFRenderer renderer = new PDFRenderer(document);
+                BufferedImage pageImage = renderer.renderImageWithDPI(pageNumber - 1, 180, ImageType.RGB);
+                int safeX = Math.max(0, Math.min(cropX, pageImage.getWidth() - 1));
+                int safeY = Math.max(0, Math.min(cropY, pageImage.getHeight() - 1));
+                int safeWidth = Math.max(1, Math.min(cropWidth, pageImage.getWidth() - safeX));
+                int safeHeight = Math.max(1, Math.min(cropHeight, pageImage.getHeight() - safeY));
+                BufferedImage cropImage = pageImage.getSubimage(safeX, safeY, safeWidth, safeHeight);
+                byte[] png = toPng(cropImage);
+                String checksum = sha256(png);
+                String storagePath = buildStoragePath(question, checksum);
+                QuestionAssetStorageService.StoredAsset storedAsset = storageService.storePng(storagePath, png);
+
+                asset.setUrl(storedAsset.publicUrl());
+                asset.setStoragePath(storedAsset.storagePath());
+                asset.setOriginalFileName(Path.of(storagePath).getFileName().toString());
+                asset.setCropX(safeX);
+                asset.setCropY(safeY);
+                asset.setCropWidth(safeWidth);
+                asset.setCropHeight(safeHeight);
+                asset.setChecksum(checksum);
+                asset.setCaption("Recorte ajustado manualmente a partir do PDF oficial do INEP.");
+                question.setRequiresAssetReview(true);
+                clearBrokenImageReferences(question);
+                return asset;
+            }
+        } catch (Exception exception) {
+            if (exception instanceof PdfRecoveryException recoveryException) {
+                throw recoveryException;
+            }
+            throw new PdfRecoveryException("ASSET_CROP_UPDATE_FAILED", exception);
+        }
     }
 
     private QuestionAsset buildAsset(

@@ -11,6 +11,8 @@ import com.gabaritaplus.api.dto.importer.review.AdminImportedQuestionReviewSumma
 import com.gabaritaplus.api.dto.importer.review.AutoValidationBatchResponse;
 import com.gabaritaplus.api.dto.importer.review.AutoValidationCountersResponse;
 import com.gabaritaplus.api.dto.importer.review.OfficialValidationReportResponse;
+import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionReviewRequest;
+import com.gabaritaplus.api.dto.importer.review.UpdateQuestionAssetCropRequest;
 import com.gabaritaplus.api.dto.importer.review.UpdateImportedQuestionStatusRequest;
 import com.gabaritaplus.api.dto.importer.review.ValidateOfficialSourceRequest;
 import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
@@ -138,6 +140,17 @@ public class AdminImportController {
         ));
     }
 
+    @PatchMapping("/questions/review/{id}")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> updateReviewQuestion(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateImportedQuestionReviewRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Questão em revisão atualizada com sucesso.",
+                questionService.updateReviewQuestion(id, request)
+        ));
+    }
+
     @PatchMapping("/questions/review/{id}/validate-official-source")
     public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> validateOfficialSource(
             @PathVariable Long id,
@@ -157,6 +170,29 @@ public class AdminImportController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Asset removido da questão em revisão com sucesso.",
                 questionService.removeReviewQuestionAsset(questionId, assetId)
+        ));
+    }
+
+    @PatchMapping("/questions/review/{questionId}/assets/{assetId}/crop")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> updateReviewAssetCrop(
+            @PathVariable Long questionId,
+            @PathVariable Long assetId,
+            @Valid @RequestBody UpdateQuestionAssetCropRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Crop do asset atualizado com sucesso.",
+                questionService.updateReviewQuestionAssetCrop(questionId, assetId, request)
+        ));
+    }
+
+    @PatchMapping("/questions/review/{questionId}/assets/{assetId}/approve")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> approveReviewAsset(
+            @PathVariable Long questionId,
+            @PathVariable Long assetId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Asset aprovado manualmente com sucesso.",
+                questionService.approveReviewQuestionAsset(questionId, assetId)
         ));
     }
 
