@@ -149,6 +149,23 @@ public class QuestionService {
     }
 
     @Transactional
+    public AdminImportedQuestionReviewDetailResponse removeReviewQuestionAsset(Long questionId, Long assetId) {
+        Question question = getQuestionEntity(questionId);
+        initializeQuestionGraph(question);
+
+        boolean removed = question.getAssets().removeIf(asset -> asset.getId().equals(assetId));
+        question.getAlternatives().forEach(alternative -> alternative.getAssets().removeIf(asset -> asset.getId().equals(assetId)));
+        if (!removed) {
+            throw new ResourceNotFoundException("Asset da questão não encontrado.");
+        }
+
+        questionAutoValidationService.applyAutoValidation(question);
+        Question saved = questionRepository.save(question);
+        initializeQuestionGraph(saved);
+        return toAdminReviewDetailResponse(saved);
+    }
+
+    @Transactional
     public AdminImportedQuestionReviewDetailResponse updateReviewQuestionStatus(
             Long id,
             UpdateImportedQuestionStatusRequest request

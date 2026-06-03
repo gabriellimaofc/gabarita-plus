@@ -83,6 +83,13 @@ export const adminImportService = {
     return unwrapResponse(response);
   },
 
+  async removeReviewAsset(questionId: number, assetId: number) {
+    const response = await apiClient.delete<ApiResponse<ReviewQuestionDetail>>(
+      `/admin/import/questions/review/${questionId}/assets/${assetId}`,
+    );
+    return unwrapResponse(response);
+  },
+
   async autoValidateQuestion(id: number) {
     const response = await apiClient.post<ApiResponse<ReviewQuestionDetail>>(
       `/admin/import/questions/${id}/auto-validate`,

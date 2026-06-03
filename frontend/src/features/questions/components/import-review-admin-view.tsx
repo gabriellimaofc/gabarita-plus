@@ -31,6 +31,7 @@ import {
   useDeleteOfficialSource,
   useOfficialSources,
   usePublishReviewQuestion,
+  useRemoveReviewAsset,
   useRecoverAssets,
   useRecoverAssetsBatch,
   useReviewCounters,
@@ -507,6 +508,7 @@ export function ImportReviewAdminView() {
   const updateStatus = useUpdateReviewStatus();
   const validateOfficial = useValidateOfficialSource();
   const publishQuestion = usePublishReviewQuestion();
+  const removeReviewAsset = useRemoveReviewAsset();
   const autoValidateQuestion = useAutoValidateQuestion();
   const autoValidateBatch = useAutoValidateBatch();
   const autoPublishSafe = useAutoPublishSafe();
@@ -791,6 +793,24 @@ export function ImportReviewAdminView() {
                   {item.recoveredAssets > 0 ? (
                     <p className="mt-2 text-xs font-medium text-emerald-600">
                       {item.recoveredAssets} asset(s) recuperado(s) do PDF oficial do INEP.
+                    </p>
+                  ) : null}
+                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
+                    <p>Idioma da questão: {item.languageOptionDetected ?? "-"}</p>
+                    <p>Idioma da página: {item.pageLanguageOptionDetected ?? "-"}</p>
+                    <p>Score da página: {item.selectedPageScore ?? "-"}</p>
+                    <p>Crop method: {item.cropMethod ?? "-"}</p>
+                    <p>Múltiplas questões no crop: {item.cropContainsMultipleQuestions ? "sim" : "não"}</p>
+                    <p>Revisão manual do asset: {item.assetNeedsManualReview ? "sim" : "não"}</p>
+                  </div>
+                  {item.strongPhraseMatches.length ? (
+                    <p className="mt-2 break-words text-xs text-muted-foreground">
+                      Frases fortes encontradas: {item.strongPhraseMatches.join(" | ")}
+                    </p>
+                  ) : null}
+                  {item.rejectedCandidatePages.length ? (
+                    <p className="mt-2 break-words text-xs text-amber-700 dark:text-amber-300">
+                      Páginas rejeitadas: {item.rejectedCandidatePages.join(" | ")}
                     </p>
                   ) : null}
                 </div>
@@ -1120,6 +1140,15 @@ export function ImportReviewAdminView() {
                       assets={selectedQuestion.assets}
                       sourceLabel="Assets vinculados"
                       requiresAssetReview={selectedQuestion.requiresAssetReview}
+                      onRemoveAsset={(asset) => {
+                        if (!window.confirm("Remover este asset da questão em revisão?")) {
+                          return;
+                        }
+                        removeReviewAsset.mutate({
+                          questionId: selectedQuestion.id,
+                          assetId: asset.id,
+                        });
+                      }}
                     />
 
                     <QuestionRawText value={selectedQuestion.statement} />

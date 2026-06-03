@@ -27,6 +27,7 @@ import java.security.MessageDigest;
 import java.text.Normalizer;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,6 +49,23 @@ public class OfficialPdfAssetRecoveryService {
             "dislexia",
             "O filme Como estrellas en la tierra"
     );
+    private static final List<String> SPANISH_MARKERS = List.of(
+            "opcao espanhol",
+            "opção espanhol",
+            "espanhol",
+            "¿",
+            "porqué",
+            "como estrellas en la tierra",
+            "dislexia"
+    );
+    private static final List<String> ENGLISH_MARKERS = List.of(
+            "opcao ingles",
+            "opção ingles",
+            "opção inglês",
+            "ingles",
+            "inglês",
+            "english"
+    );
 
     private final QuestionAssetStorageService storageService;
 
@@ -57,9 +75,11 @@ public class OfficialPdfAssetRecoveryService {
     public OfficialPdfAssetRecoveryResult recover(Question question, OfficialExamSource source) {
         List<String> warnings = new ArrayList<>();
         List<String> errors = new ArrayList<>();
+        LanguageOption questionLanguage = detectQuestionLanguageOption(question);
         OfficialPdfAssetRecoveryDiagnostics.Builder diagnostics = OfficialPdfAssetRecoveryDiagnostics.builder()
                 .recoveryAttempted(true)
                 .officialSourceFound(source != null);
+        diagnostics.languageOptionDetected(questionLanguage.name());
 
         if (source == null) {
             return fail(0, warnings, errors, diagnostics, "OFFICIAL_SOURCE_NOT_FOUND");
@@ -89,7 +109,17 @@ public class OfficialPdfAssetRecoveryService {
 
                 PageSelection selection = findQuestionPage(document, question);
                 diagnostics.candidatePages(selection.candidatePages());
+                diagnostics.rejectedCandidatePages(selection.rejectedCandidatePages());
+                diagnostics.strongPhraseMatches(selection.strongPhraseMatches());
+                diagnostics.selectedPageScore(selection.score());
+                diagnostics.pageLanguageOptionDetected(selection.pageLanguageOption().name());
                 if (selection.pageIndex() < 0) {
+                    if (selection.wrongLanguageDetected()) {
+                        warnings.add("WRONG_LANGUAGE_SECTION_DETECTED");
+                    }
+                    if (selection.ambiguous()) {
+                        warnings.add("QUESTION_PAGE_AMBIGUOUS");
+                    }
                     return fail(0, warnings, errors, diagnostics, "QUESTION_PAGE_NOT_FOUND");
                 }
 
@@ -108,11 +138,20 @@ public class OfficialPdfAssetRecoveryService {
                     return result(0, warnings, errors, diagnostics.recoveryFailureReason("PDF_RENDER_FAILED"));
                 }
 
-                Crop crop = broadQuestionCrop(pageImage, question, selection.method());
+                Crop crop = determineCrop(pageImage, question, selection);
+                diagnostics.cropMethod(crop.method())
+                        .cropContainsMultipleQuestions(crop.containsMultipleQuestions())
+                        .assetNeedsManualReview(true);
                 BufferedImage cropImage = pageImage.getSubimage(crop.x(), crop.y(), crop.width(), crop.height());
                 byte[] png = toPng(cropImage);
                 String checksum = sha256(png);
                 warnings.add("ASSET_RECOVERY_NEEDS_REVIEW");
+                if (selection.wrongLanguageDetected()) {
+                    warnings.add("WRONG_LANGUAGE_SECTION_DETECTED");
+                }
+                if (selection.ambiguous() || crop.containsMultipleQuestions()) {
+                    warnings.add("QUESTION_PAGE_AMBIGUOUS");
+                }
 
                 if (hasAssetWithChecksum(question, checksum)) {
                     warnings.add("ASSET_RECOVERED_FROM_OFFICIAL_PDF");
@@ -139,6 +178,7 @@ public class OfficialPdfAssetRecoveryService {
                 }
 
                 try {
+                    replaceRecoverableOfficialAssets(question);
                     QuestionAsset asset = buildAsset(question, storedAsset, storagePath, pageIndex, crop, checksum);
                     question.getAssets().add(asset);
                     question.setOfficialPage(pageIndex + 1);
@@ -477,29 +517,78 @@ public class OfficialPdfAssetRecoveryService {
 
     private PageSelection findQuestionPage(PDDocument document, Question question) throws Exception {
         Set<Integer> candidatePages = new LinkedHashSet<>();
+        List<String> rejectedCandidatePages = new ArrayList<>();
         List<String> needles = buildNeedles(question);
+        List<String> strongPhrases = buildStrongPhrases(question);
+        LanguageOption expectedLanguage = detectQuestionLanguageOption(question);
         PDFTextStripper stripper = new PDFTextStripper();
+        List<PageCandidate> matches = new ArrayList<>();
 
-        log.info("Official PDF text search questionId={} needles={}", question.getId(), needles);
+        log.info("Official PDF text search questionId={} needles={} strongPhrases={} expectedLanguage={}",
+                question.getId(), needles, strongPhrases, expectedLanguage);
         for (int page = 1; page <= document.getNumberOfPages(); page++) {
             stripper.setStartPage(page);
             stripper.setEndPage(page);
-            String text = normalizeSearchText(stripper.getText(document));
-            for (String needle : needles) {
-                if (!needle.isBlank() && text.contains(normalizeSearchText(needle))) {
-                    candidatePages.add(page);
-                    return new PageSelection(page - 1, List.copyOf(candidatePages), "TEXT_MATCH");
-                }
+            String rawText = stripper.getText(document);
+            String text = normalizeSearchText(rawText);
+            PageCandidate candidate = scorePage(page, text, question, needles, strongPhrases, expectedLanguage);
+            if (candidate.questionMarkerFound() || !candidate.strongPhraseMatches().isEmpty() || candidate.score() > 0) {
+                candidatePages.add(page);
             }
+            if (candidate.rejectedReason() != null) {
+                rejectedCandidatePages.add("p." + page + ": " + candidate.rejectedReason());
+            }
+            if (candidate.score() > 0 && candidate.rejectedReason() == null) {
+                matches.add(candidate);
+            }
+        }
+
+        if (!matches.isEmpty()) {
+            PageCandidate best = matches.stream()
+                    .max(Comparator.comparingInt(PageCandidate::score)
+                            .thenComparingInt(candidate -> candidate.strongPhraseMatches().size()))
+                    .orElseThrow();
+            String method = best.strongPhraseMatches().isEmpty() ? "QUESTION_NUMBER_AND_LANGUAGE_MATCH" : "TEXT_MATCH";
+            return new PageSelection(
+                    best.page() - 1,
+                    List.copyOf(candidatePages),
+                    rejectedCandidatePages,
+                    method,
+                    best.pageLanguage(),
+                    best.strongPhraseMatches(),
+                    best.score(),
+                    best.wrongLanguageDetected(),
+                    best.ambiguous()
+            );
         }
 
         List<Integer> fallbackPages = fallbackPages(question, document.getNumberOfPages());
         candidatePages.addAll(fallbackPages);
         if (!fallbackPages.isEmpty()) {
-            return new PageSelection(fallbackPages.get(0) - 1, List.copyOf(candidatePages), "FALLBACK_WIDE_CROP");
+            return new PageSelection(
+                    fallbackPages.get(0) - 1,
+                    List.copyOf(candidatePages),
+                    rejectedCandidatePages,
+                    "FALLBACK_WIDE_CROP",
+                    LanguageOption.UNKNOWN,
+                    List.of(),
+                    0,
+                    rejectedCandidatePages.stream().anyMatch(item -> item.contains("WRONG_LANGUAGE_SECTION_DETECTED")),
+                    true
+            );
         }
 
-        return new PageSelection(-1, List.copyOf(candidatePages), "NO_PAGE_FOUND");
+        return new PageSelection(
+                -1,
+                List.copyOf(candidatePages),
+                rejectedCandidatePages,
+                "NO_PAGE_FOUND",
+                LanguageOption.UNKNOWN,
+                List.of(),
+                0,
+                rejectedCandidatePages.stream().anyMatch(item -> item.contains("WRONG_LANGUAGE_SECTION_DETECTED")),
+                true
+        );
     }
 
     private List<String> buildNeedles(Question question) {
@@ -517,6 +606,146 @@ public class OfficialPdfAssetRecoveryService {
             needles.addAll(ENEM_2023_Q1_NEEDLES);
         }
         return needles;
+    }
+
+    private List<String> buildStrongPhrases(Question question) {
+        LinkedHashSet<String> phrases = new LinkedHashSet<>();
+        if (question.getStatement() != null) {
+            String[] parts = question.getStatement().split("[\\n\\r.!?]+");
+            for (String part : parts) {
+                String normalized = part.trim();
+                if (normalized.length() >= 10) {
+                    phrases.add(normalized);
+                }
+            }
+        }
+        if (question.getSourceYear() != null
+                && question.getSourceYear() == 2023
+                && question.getSourceQuestionNumber() != null
+                && question.getSourceQuestionNumber() == 1
+                && detectQuestionLanguageOption(question) == LanguageOption.ESPANHOL) {
+            phrases.add("\u00BFQU\u00C9 ME PASA?");
+            phrases.add("PORQU\u00C9 NO CONSIGO APRENDER");
+            phrases.add("Como estrellas en la tierra");
+            phrases.add("dislexia");
+        }
+        return phrases.stream().limit(8).toList();
+    }
+
+    private PageCandidate scorePage(
+            int page,
+            String normalizedText,
+            Question question,
+            List<String> needles,
+            List<String> strongPhrases,
+            LanguageOption expectedLanguage
+    ) {
+        Integer number = question.getSourceQuestionNumber();
+        String padded = number == null ? null : String.format(Locale.ROOT, "%02d", number);
+        boolean questionMarkerFound = padded != null && (
+                normalizedText.contains("QUESTAO " + padded)
+                        || normalizedText.contains("QUESTAO " + number)
+        );
+        LanguageOption pageLanguage = detectPageLanguageOption(normalizedText);
+        List<String> strongMatches = strongPhrases.stream()
+                .map(this::normalizeSearchText)
+                .filter(value -> !value.isBlank() && normalizedText.contains(value))
+                .distinct()
+                .toList();
+
+        int score = 0;
+        if (questionMarkerFound) {
+            score += 20;
+        }
+        if (expectedLanguage != LanguageOption.UNKNOWN && pageLanguage == expectedLanguage) {
+            score += 40;
+        }
+        if (!strongMatches.isEmpty()) {
+            score += Math.min(60, strongMatches.size() * 25);
+        }
+        for (String needle : needles) {
+            String normalizedNeedle = normalizeSearchText(needle);
+            if (!normalizedNeedle.isBlank() && normalizedText.contains(normalizedNeedle)) {
+                score += 10;
+            }
+        }
+
+        boolean wrongLanguage = expectedLanguage != LanguageOption.UNKNOWN
+                && pageLanguage != LanguageOption.UNKNOWN
+                && pageLanguage != expectedLanguage;
+        boolean ambiguous = questionMarkerFound && strongMatches.isEmpty();
+
+        if (wrongLanguage) {
+            return new PageCandidate(
+                    page,
+                    0,
+                    pageLanguage,
+                    strongMatches,
+                    questionMarkerFound,
+                    "WRONG_LANGUAGE_SECTION_DETECTED",
+                    true,
+                    true
+            );
+        }
+
+        if (expectedLanguage != LanguageOption.UNKNOWN && strongMatches.isEmpty() && !questionMarkerFound) {
+            return new PageCandidate(
+                    page,
+                    0,
+                    pageLanguage,
+                    List.of(),
+                    false,
+                    "QUESTION_PAGE_AMBIGUOUS",
+                    false,
+                    true
+            );
+        }
+
+        return new PageCandidate(
+                page,
+                score,
+                pageLanguage,
+                strongMatches,
+                questionMarkerFound,
+                null,
+                false,
+                ambiguous
+        );
+    }
+
+    private LanguageOption detectQuestionLanguageOption(Question question) {
+        String content = String.join(
+                " ",
+                String.valueOf(question.getSubject()),
+                String.valueOf(question.getTopic()),
+                String.valueOf(question.getSubtopic()),
+                String.valueOf(question.getTitle()),
+                String.valueOf(question.getStatement())
+        );
+        String normalized = normalizeSearchText(content);
+        if (SPANISH_MARKERS.stream().map(this::normalizeSearchText).anyMatch(normalized::contains)) {
+            return LanguageOption.ESPANHOL;
+        }
+        if (ENGLISH_MARKERS.stream().map(this::normalizeSearchText).anyMatch(normalized::contains)) {
+            return LanguageOption.INGLES;
+        }
+        return LanguageOption.UNKNOWN;
+    }
+
+    private LanguageOption detectPageLanguageOption(String normalizedText) {
+        boolean spanish = SPANISH_MARKERS.stream()
+                .map(this::normalizeSearchText)
+                .anyMatch(normalizedText::contains);
+        boolean english = ENGLISH_MARKERS.stream()
+                .map(this::normalizeSearchText)
+                .anyMatch(normalizedText::contains);
+        if (spanish && !english) {
+            return LanguageOption.ESPANHOL;
+        }
+        if (english && !spanish) {
+            return LanguageOption.INGLES;
+        }
+        return LanguageOption.UNKNOWN;
     }
 
     private String normalizeSearchText(String value) {
@@ -557,9 +786,9 @@ public class OfficialPdfAssetRecoveryService {
         return List.of(Math.min(pageCount, Math.max(1, 2 + (questionNumber - 1) / 3)));
     }
 
-    private Crop broadQuestionCrop(BufferedImage image, Question question, String method) {
-        if (method != null && method.startsWith("FALLBACK")) {
-            return new Crop(0, 0, image.getWidth(), image.getHeight());
+    private Crop determineCrop(BufferedImage image, Question question, PageSelection selection) {
+        if (selection.method() != null && selection.method().startsWith("FALLBACK")) {
+            return new Crop(0, 0, image.getWidth(), image.getHeight(), "FULL_PAGE", true);
         }
         int marginX = Math.max(24, image.getWidth() / 25);
         int top = Math.max(24, image.getHeight() / 18);
@@ -570,7 +799,12 @@ public class OfficialPdfAssetRecoveryService {
         }
         int width = image.getWidth() - (marginX * 2);
         height = Math.min(height, image.getHeight() - top - 24);
-        return new Crop(marginX, top, width, height);
+        if (!selection.strongPhraseMatches().isEmpty() && question.getSourceQuestionNumber() != null
+                && question.getSourceQuestionNumber() == 1) {
+            int focusedHeight = Math.min(height, (int) Math.round(image.getHeight() * 0.52));
+            return new Crop(marginX, top, width, focusedHeight, "PAGE_CROP", true);
+        }
+        return new Crop(marginX, top, width, height, "PAGE_CROP", true);
     }
 
     private byte[] toPng(BufferedImage image) throws Exception {
@@ -590,6 +824,22 @@ public class OfficialPdfAssetRecoveryService {
                 .map(QuestionAsset::getChecksum)
                 .filter(value -> value != null && !value.isBlank())
                 .anyMatch(checksum::equalsIgnoreCase);
+    }
+
+    private void replaceRecoverableOfficialAssets(Question question) {
+        question.getAssets().removeIf(asset -> isRecoverableOfficialAsset(question, asset));
+    }
+
+    private boolean isRecoverableOfficialAsset(Question question, QuestionAsset asset) {
+        if (question.getImportStatus() == com.gabaritaplus.api.entity.enums.QuestionImportStatus.PUBLISHED) {
+            return false;
+        }
+        String storagePath = asset.getStoragePath() == null ? "" : asset.getStoragePath().toLowerCase(Locale.ROOT);
+        String caption = asset.getCaption() == null ? "" : asset.getCaption().toLowerCase(Locale.ROOT);
+        return storagePath.contains("official-pdf-")
+                || caption.contains("pdf oficial")
+                || caption.contains("revisão humana obrigatória")
+                || caption.contains("revisao humana obrigatoria");
     }
 
     private String buildStoragePath(Question question, String checksum) {
@@ -623,7 +873,11 @@ public class OfficialPdfAssetRecoveryService {
         asset.setCropWidth(crop.width());
         asset.setCropHeight(crop.height());
         asset.setAltText("Recorte oficial do PDF do INEP para a quest\u00E3o " + question.getSourceQuestionNumber() + ".");
-        asset.setCaption("Recorte amplo recuperado do PDF oficial do INEP. Revis\u00E3o humana obrigat\u00F3ria antes da publica\u00E7\u00E3o.");
+        asset.setCaption(
+                "QUESTION_BLOCK".equals(crop.method())
+                        ? "Recorte da questão recuperado do PDF oficial do INEP. Revisão humana recomendada antes da publicação."
+                        : "Recorte amplo recuperado do PDF oficial do INEP. Revisão humana obrigatória antes da publicação."
+        );
         asset.setChecksum(checksum);
         return asset;
     }
@@ -645,10 +899,32 @@ public class OfficialPdfAssetRecoveryService {
                 .replace(BROKEN_IMAGE_URL, "");
     }
 
-    private record PageSelection(int pageIndex, List<Integer> candidatePages, String method) {
+    private record PageSelection(
+            int pageIndex,
+            List<Integer> candidatePages,
+            List<String> rejectedCandidatePages,
+            String method,
+            LanguageOption pageLanguageOption,
+            List<String> strongPhraseMatches,
+            int score,
+            boolean wrongLanguageDetected,
+            boolean ambiguous
+    ) {
     }
 
-    private record Crop(int x, int y, int width, int height) {
+    private record PageCandidate(
+            int page,
+            int score,
+            LanguageOption pageLanguage,
+            List<String> strongPhraseMatches,
+            boolean questionMarkerFound,
+            String rejectedReason,
+            boolean wrongLanguageDetected,
+            boolean ambiguous
+    ) {
+    }
+
+    private record Crop(int x, int y, int width, int height, String method, boolean containsMultipleQuestions) {
     }
 
     private record DownloadAttempt(String name, boolean allowCompression) {
@@ -675,5 +951,11 @@ public class OfficialPdfAssetRecoveryService {
         String reason() {
             return reason;
         }
+    }
+
+    private enum LanguageOption {
+        ESPANHOL,
+        INGLES,
+        UNKNOWN
     }
 }

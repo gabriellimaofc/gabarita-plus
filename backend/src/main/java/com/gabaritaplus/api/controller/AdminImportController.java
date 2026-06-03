@@ -149,6 +149,17 @@ public class AdminImportController {
         ));
     }
 
+    @DeleteMapping("/questions/review/{questionId}/assets/{assetId}")
+    public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> removeReviewAsset(
+            @PathVariable Long questionId,
+            @PathVariable Long assetId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Asset removido da questão em revisão com sucesso.",
+                questionService.removeReviewQuestionAsset(questionId, assetId)
+        ));
+    }
+
     @PostMapping("/questions/review/{id}/publish")
     public ResponseEntity<ApiResponse<AdminImportedQuestionReviewDetailResponse>> publishReviewQuestion(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(

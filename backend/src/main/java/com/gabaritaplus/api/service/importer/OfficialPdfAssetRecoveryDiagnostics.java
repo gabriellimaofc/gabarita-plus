@@ -6,6 +6,11 @@ import java.util.List;
 public record OfficialPdfAssetRecoveryDiagnostics(
         boolean recoveryAttempted,
         boolean officialSourceFound,
+        String languageOptionDetected,
+        String pageLanguageOptionDetected,
+        List<String> strongPhraseMatches,
+        List<String> rejectedCandidatePages,
+        Integer selectedPageScore,
         boolean pdfDownloaded,
         Long pdfSizeBytes,
         Integer pdfDownloadHttpStatus,
@@ -28,7 +33,10 @@ public record OfficialPdfAssetRecoveryDiagnostics(
         boolean storageUploadSuccess,
         String recoveryFailureReason,
         String recoveryMethod,
-        String assetUrl
+        String assetUrl,
+        String cropMethod,
+        boolean cropContainsMultipleQuestions,
+        boolean assetNeedsManualReview
 ) {
     public static Builder builder() {
         return new Builder();
@@ -37,6 +45,11 @@ public record OfficialPdfAssetRecoveryDiagnostics(
     public static class Builder {
         private boolean recoveryAttempted;
         private boolean officialSourceFound;
+        private String languageOptionDetected;
+        private String pageLanguageOptionDetected;
+        private List<String> strongPhraseMatches = new ArrayList<>();
+        private List<String> rejectedCandidatePages = new ArrayList<>();
+        private Integer selectedPageScore;
         private boolean pdfDownloaded;
         private Long pdfSizeBytes;
         private Integer pdfDownloadHttpStatus;
@@ -60,6 +73,9 @@ public record OfficialPdfAssetRecoveryDiagnostics(
         private String recoveryFailureReason;
         private String recoveryMethod;
         private String assetUrl;
+        private String cropMethod;
+        private boolean cropContainsMultipleQuestions;
+        private boolean assetNeedsManualReview;
 
         public Builder recoveryAttempted(boolean value) {
             this.recoveryAttempted = value;
@@ -68,6 +84,31 @@ public record OfficialPdfAssetRecoveryDiagnostics(
 
         public Builder officialSourceFound(boolean value) {
             this.officialSourceFound = value;
+            return this;
+        }
+
+        public Builder languageOptionDetected(String value) {
+            this.languageOptionDetected = value;
+            return this;
+        }
+
+        public Builder pageLanguageOptionDetected(String value) {
+            this.pageLanguageOptionDetected = value;
+            return this;
+        }
+
+        public Builder strongPhraseMatches(List<String> value) {
+            this.strongPhraseMatches = value == null ? new ArrayList<>() : new ArrayList<>(value);
+            return this;
+        }
+
+        public Builder rejectedCandidatePages(List<String> value) {
+            this.rejectedCandidatePages = value == null ? new ArrayList<>() : new ArrayList<>(value);
+            return this;
+        }
+
+        public Builder selectedPageScore(Integer value) {
+            this.selectedPageScore = value;
             return this;
         }
 
@@ -190,10 +231,30 @@ public record OfficialPdfAssetRecoveryDiagnostics(
             return this;
         }
 
+        public Builder cropMethod(String value) {
+            this.cropMethod = value;
+            return this;
+        }
+
+        public Builder cropContainsMultipleQuestions(boolean value) {
+            this.cropContainsMultipleQuestions = value;
+            return this;
+        }
+
+        public Builder assetNeedsManualReview(boolean value) {
+            this.assetNeedsManualReview = value;
+            return this;
+        }
+
         public OfficialPdfAssetRecoveryDiagnostics build() {
             return new OfficialPdfAssetRecoveryDiagnostics(
                     recoveryAttempted,
                     officialSourceFound,
+                    languageOptionDetected,
+                    pageLanguageOptionDetected,
+                    List.copyOf(strongPhraseMatches),
+                    List.copyOf(rejectedCandidatePages),
+                    selectedPageScore,
                     pdfDownloaded,
                     pdfSizeBytes,
                     pdfDownloadHttpStatus,
@@ -216,7 +277,10 @@ public record OfficialPdfAssetRecoveryDiagnostics(
                     storageUploadSuccess,
                     recoveryFailureReason,
                     recoveryMethod,
-                    assetUrl
+                    assetUrl,
+                    cropMethod,
+                    cropContainsMultipleQuestions,
+                    assetNeedsManualReview
             );
         }
     }

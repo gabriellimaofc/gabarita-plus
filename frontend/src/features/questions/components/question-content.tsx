@@ -292,10 +292,12 @@ function AssetImage({
   asset,
   showReviewWarning,
   onOpen,
+  onRemove,
 }: {
   asset: QuestionAsset;
   showReviewWarning?: boolean;
   onOpen: (asset: QuestionAsset) => void;
+  onRemove?: (asset: QuestionAsset) => void;
 }) {
   const [broken, setBroken] = useState(false);
   const hasCropMetadata = [asset.cropX, asset.cropY, asset.cropWidth, asset.cropHeight].every(
@@ -345,15 +347,26 @@ function AssetImage({
             {asset.caption ? <p className="text-sm leading-6">{asset.caption}</p> : null}
           </div>
           {asset.url ? (
-            <a
-              href={asset.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex shrink-0 items-center gap-1 text-primary"
-            >
-              Abrir
-              <ExternalLink className="size-3.5" />
-            </a>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <a
+                href={asset.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-primary"
+              >
+                Abrir
+                <ExternalLink className="size-3.5" />
+              </a>
+              {onRemove ? (
+                <button
+                  type="button"
+                  onClick={() => onRemove(asset)}
+                  className="text-sm font-medium text-rose-600 hover:underline dark:text-rose-400"
+                >
+                  Remover asset
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
         <div className="grid gap-2 text-xs leading-5 text-muted-foreground sm:grid-cols-2">
@@ -382,11 +395,13 @@ function AssetGallery({
   title,
   requiresReview,
   onOpen,
+  onRemove,
 }: {
   assets: QuestionAsset[];
   title?: string;
   requiresReview?: boolean;
   onOpen: (asset: QuestionAsset) => void;
+  onRemove?: (asset: QuestionAsset) => void;
 }) {
   if (!assets.length) {
     return null;
@@ -397,7 +412,13 @@ function AssetGallery({
       {title ? <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{title}</p> : null}
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         {assets.map((asset) => (
-          <AssetImage key={asset.id} asset={asset} showReviewWarning={requiresReview} onOpen={onOpen} />
+          <AssetImage
+            key={asset.id}
+            asset={asset}
+            showReviewWarning={requiresReview}
+            onOpen={onOpen}
+            onRemove={onRemove}
+          />
         ))}
       </div>
     </div>
@@ -410,12 +431,14 @@ export function QuestionContent({
   assets,
   sourceLabel,
   requiresAssetReview,
+  onRemoveAsset,
 }: {
   statement: string;
   statementHtml?: string | null;
   assets: QuestionAsset[];
   sourceLabel?: string;
   requiresAssetReview?: boolean;
+  onRemoveAsset?: (asset: QuestionAsset) => void;
 }) {
   const [activeAsset, setActiveAsset] = useState<QuestionAsset | null>(null);
 
@@ -451,6 +474,7 @@ export function QuestionContent({
               title={sourceLabel}
               requiresReview={requiresAssetReview}
               onOpen={setActiveAsset}
+              onRemove={onRemoveAsset}
             />
             {!assets.length ? (
               <div className="rounded-[20px] border border-dashed border-border/70 p-4 text-sm text-muted-foreground">

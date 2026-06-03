@@ -125,6 +125,23 @@ export function usePublishReviewQuestion() {
   });
 }
 
+export function useRemoveReviewAsset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ questionId, assetId }: { questionId: number; assetId: number }) =>
+      adminImportService.removeReviewAsset(questionId, assetId),
+    onSuccess: (question) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.setQueryData(["admin-review-question", question.id], question);
+      toast.success("Asset removido da revisão.");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Não foi possível remover o asset da questão.")),
+  });
+}
+
 export function useAutoValidateQuestion() {
   const queryClient = useQueryClient();
 

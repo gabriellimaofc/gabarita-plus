@@ -224,6 +224,11 @@ export interface OfficialValidationItem {
   validatedAgainstOfficialSource: boolean;
   assetRecovered: boolean;
   recoveredAssets: number;
+  languageOptionDetected: string | null;
+  pageLanguageOptionDetected: string | null;
+  strongPhraseMatches: string[];
+  rejectedCandidatePages: string[];
+  selectedPageScore: number | null;
   newAutoValidationScore: number | null;
   newAutoValidationStatus: AutoValidationStatus | null;
   requiresAssetReview: boolean;
@@ -253,6 +258,9 @@ export interface OfficialValidationItem {
   recoveryFailureReason: string | null;
   recoveryMethod: string | null;
   assetUrl: string | null;
+  cropMethod: string | null;
+  cropContainsMultipleQuestions: boolean;
+  assetNeedsManualReview: boolean;
   updated: boolean;
   warnings: string[];
   errors: string[];

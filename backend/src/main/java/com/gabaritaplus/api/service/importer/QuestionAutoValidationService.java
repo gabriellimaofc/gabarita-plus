@@ -618,6 +618,11 @@ public class QuestionAutoValidationService {
                 Boolean.TRUE.equals(question.getBrokenImageDetected()),
                 diagnostics != null && diagnostics.recoveryAttempted(),
                 diagnostics != null && diagnostics.officialSourceFound(),
+                diagnostics == null ? null : diagnostics.languageOptionDetected(),
+                diagnostics == null ? null : diagnostics.pageLanguageOptionDetected(),
+                diagnostics == null ? List.of() : diagnostics.strongPhraseMatches(),
+                diagnostics == null ? List.of() : diagnostics.rejectedCandidatePages(),
+                diagnostics == null ? null : diagnostics.selectedPageScore(),
                 diagnostics == null ? false : diagnostics.pdfDownloaded(),
                 diagnostics == null ? null : diagnostics.pdfSizeBytes(),
                 diagnostics == null ? null : diagnostics.pdfDownloadHttpStatus(),
@@ -641,6 +646,9 @@ public class QuestionAutoValidationService {
                 diagnostics == null ? null : diagnostics.recoveryFailureReason(),
                 diagnostics == null ? null : diagnostics.recoveryMethod(),
                 diagnostics == null ? null : diagnostics.assetUrl(),
+                diagnostics == null ? null : diagnostics.cropMethod(),
+                diagnostics != null && diagnostics.cropContainsMultipleQuestions(),
+                diagnostics != null && diagnostics.assetNeedsManualReview(),
                 previousValidated != Boolean.TRUE.equals(question.getValidatedAgainstOfficialSource())
                         || !java.util.Objects.equals(previousScore, question.getAutoValidationScore()),
                 List.copyOf(mergedWarnings.stream()
