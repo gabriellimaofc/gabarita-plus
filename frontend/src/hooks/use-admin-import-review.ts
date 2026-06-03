@@ -183,8 +183,20 @@ export function useUpdateReviewAssetCrop() {
     },
     onError: (error) => {
       const appError = toAppError(error);
+      if (appError.status === 404 && appError.message.includes("OFFICIAL_SOURCE_NOT_FOUND_FOR_RECROP")) {
+        toast.error("Não foi possível localizar o PDF oficial/cacheado para recortar novamente. Verifique a fonte oficial cadastrada.");
+        return;
+      }
+      if (appError.status === 404 && appError.message.includes("OFFICIAL_PDF_URL_MISSING_FOR_RECROP")) {
+        toast.error("A fonte oficial foi encontrada, mas está sem PDF oficial/cacheado para o novo recorte.");
+        return;
+      }
       if (appError.status === 404 && appError.message.includes("ASSET_NOT_FOUND_FOR_QUESTION")) {
         toast.error("Asset não encontrado para esta questão. Recarregue a página e tente novamente.");
+        return;
+      }
+      if ((appError.status === 400 || appError.status === 404) && appError.message.includes("ASSET_NOT_OFFICIAL_PDF")) {
+        toast.error("Este asset não é um recorte oficial de PDF e não pode ser ajustado por esta ferramenta.");
         return;
       }
       if (appError.status === 404) {

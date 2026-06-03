@@ -3,12 +3,16 @@ package com.gabaritaplus.api;
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevAlternativeResponse;
 import com.gabaritaplus.api.dto.importer.enemdev.EnemDevQuestionResponse;
 import com.gabaritaplus.api.entity.Alternative;
+import com.gabaritaplus.api.entity.OfficialExamSource;
 import com.gabaritaplus.api.entity.Question;
+import com.gabaritaplus.api.entity.QuestionAsset;
 import com.gabaritaplus.api.entity.Role;
 import com.gabaritaplus.api.entity.User;
 import com.gabaritaplus.api.entity.enums.DifficultyLevel;
+import com.gabaritaplus.api.entity.enums.QuestionAssetType;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.entity.enums.RoleName;
+import com.gabaritaplus.api.repository.OfficialExamSourceRepository;
 import com.gabaritaplus.api.repository.QuestionRepository;
 import com.gabaritaplus.api.repository.RoleRepository;
 import com.gabaritaplus.api.repository.UserRepository;
@@ -60,6 +64,9 @@ class AdminEnemDevImportIntegrationTests {
 
     @Autowired
     private QuestionRepository questionRepository;
+
+    @Autowired
+    private OfficialExamSourceRepository officialExamSourceRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -387,6 +394,52 @@ class AdminEnemDevImportIntegrationTests {
                         ))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("ASSET_NOT_FOUND_FOR_QUESTION"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void cropRouteReusesOfficialSourceLookupForEnemDevQuestion() throws Exception {
+        Question saved = buildReviewQuestionWithAlternatives();
+        saved.setExam("ENEM");
+        saved.setSourceExam("ENEM_DEV");
+        saved.setValidatedAgainstOfficialSource(true);
+        saved.setSourceDay(1);
+        saved.setSourceBookColor("AZUL");
+        saved.setOfficialPdfUrl("https://cache.local/enem-2023-dia1-azul.pdf");
+
+        QuestionAsset asset = new QuestionAsset();
+        asset.setQuestion(saved);
+        asset.setType(QuestionAssetType.IMAGE);
+        asset.setStoragePath("enem/2023/dia-1/azul/q1/official-pdf-existing.png");
+        asset.setOriginalFileName("official-pdf-existing.png");
+        asset.setSourcePage(4);
+        asset.setCropX(56);
+        asset.setCropY(108);
+        asset.setCropWidth(1305);
+        asset.setCropHeight(1013);
+        saved.getAssets().add(asset);
+        saved = questionRepository.save(saved);
+
+        OfficialExamSource source = new OfficialExamSource();
+        source.setExam("ENEM");
+        source.setYear(2023);
+        source.setDay(1);
+        source.setBookColor("AZUL");
+        source.setPdfUrl("");
+        source.setCachedPdfUrl("");
+        source.setSourceUrl("https://www.gov.br/inep/provas-e-gabaritos");
+        officialExamSourceRepository.save(source);
+
+        mockMvc.perform(patch("/admin/import/questions/review/{questionId}/assets/{assetId}/crop", saved.getId(), saved.getAssets().getFirst().getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "cropX", 56,
+                                "cropY", 111,
+                                "cropWidth", 1308,
+                                "cropHeight", 1015
+                        ))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("OFFICIAL_PDF_URL_MISSING_FOR_RECROP"));
     }
 
     @Test

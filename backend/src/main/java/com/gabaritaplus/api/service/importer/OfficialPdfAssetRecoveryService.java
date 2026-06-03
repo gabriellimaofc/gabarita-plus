@@ -864,6 +864,11 @@ public class OfficialPdfAssetRecoveryService {
             int cropHeight
     ) {
         try {
+            if ((source.getCachedPdfUrl() == null || source.getCachedPdfUrl().isBlank())
+                    && (source.getPdfUrl() == null || source.getPdfUrl().isBlank())
+                    && (source.getLocalPdfPath() == null || source.getLocalPdfPath().isBlank())) {
+                throw new PdfRecoveryException("OFFICIAL_PDF_URL_MISSING_FOR_RECROP");
+            }
             Path pdfPath = resolveOfficialPdf(source, OfficialPdfAssetRecoveryDiagnostics.builder()
                     .recoveryAttempted(true)
                     .officialSourceFound(true)
@@ -874,7 +879,12 @@ public class OfficialPdfAssetRecoveryService {
                     throw new PdfRecoveryException("QUESTION_PAGE_NOT_FOUND");
                 }
                 PDFRenderer renderer = new PDFRenderer(document);
-                BufferedImage pageImage = renderer.renderImageWithDPI(pageNumber - 1, 180, ImageType.RGB);
+                BufferedImage pageImage;
+                try {
+                    pageImage = renderer.renderImageWithDPI(pageNumber - 1, 180, ImageType.RGB);
+                } catch (Exception exception) {
+                    throw new PdfRecoveryException("PDF_RENDER_FAILED", exception);
+                }
                 int safeX = Math.max(0, Math.min(cropX, pageImage.getWidth() - 1));
                 int safeY = Math.max(0, Math.min(cropY, pageImage.getHeight() - 1));
                 int safeWidth = Math.max(1, Math.min(cropWidth, pageImage.getWidth() - safeX));
@@ -883,7 +893,12 @@ public class OfficialPdfAssetRecoveryService {
                 byte[] png = toPng(cropImage);
                 String checksum = sha256(png);
                 String storagePath = buildStoragePath(question, checksum);
-                QuestionAssetStorageService.StoredAsset storedAsset = storageService.storePng(storagePath, png);
+                QuestionAssetStorageService.StoredAsset storedAsset;
+                try {
+                    storedAsset = storageService.storePng(storagePath, png);
+                } catch (QuestionAssetStorageException exception) {
+                    throw new PdfRecoveryException("STORAGE_UPLOAD_FAILED", exception);
+                }
 
                 asset.setUrl(storedAsset.publicUrl());
                 asset.setStoragePath(storedAsset.storagePath());

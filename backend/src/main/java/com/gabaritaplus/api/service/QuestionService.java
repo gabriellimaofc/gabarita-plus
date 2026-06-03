@@ -25,10 +25,12 @@ import com.gabaritaplus.api.entity.enums.MasteryStatus;
 import com.gabaritaplus.api.entity.enums.AutoValidationStatus;
 import com.gabaritaplus.api.entity.enums.QuestionImportStatus;
 import com.gabaritaplus.api.entity.enums.ReviewPriority;
+import com.gabaritaplus.api.exception.BusinessException;
 import com.gabaritaplus.api.exception.ResourceNotFoundException;
 import com.gabaritaplus.api.mapper.QuestionMapper;
 import com.gabaritaplus.api.repository.ErrorNotebookRepository;
 import com.gabaritaplus.api.repository.FavoriteQuestionRepository;
+import com.gabaritaplus.api.repository.OfficialExamSourceRepository;
 import com.gabaritaplus.api.repository.QuestionRepository;
 import com.gabaritaplus.api.repository.UserAnswerRepository;
 import com.gabaritaplus.api.service.importer.QuestionImportSupport;
@@ -40,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -71,6 +74,7 @@ public class QuestionService {
     private final QuestionImportSupport questionImportSupport;
     private final QuestionAutoValidationService questionAutoValidationService;
     private final OfficialPdfAssetRecoveryService officialPdfAssetRecoveryService;
+    private final OfficialExamSourceRepository officialExamSourceRepository;
 
     @Transactional
     public QuestionResponse create(QuestionRequest request) {
@@ -241,17 +245,24 @@ public class QuestionService {
         if (!assetBelongsToQuestion) {
             throw new ResourceNotFoundException("ASSET_NOT_FOUND_FOR_QUESTION");
         }
+        if (!isOfficialPdfAsset(asset)) {
+            throw new IllegalArgumentException("ASSET_NOT_OFFICIAL_PDF");
+        }
 
-        OfficialExamSource source = resolveOfficialSourceForQuestion(question);
-        officialPdfAssetRecoveryService.recropOfficialAsset(
-                question,
-                asset,
-                source,
-                request.cropX(),
-                request.cropY(),
-                request.cropWidth(),
-                request.cropHeight()
-        );
+        OfficialExamSource source = resolveOfficialSourceForQuestion(question, asset);
+        try {
+            officialPdfAssetRecoveryService.recropOfficialAsset(
+                    question,
+                    asset,
+                    source,
+                    request.cropX(),
+                    request.cropY(),
+                    request.cropWidth(),
+                    request.cropHeight()
+            );
+        } catch (RuntimeException exception) {
+            throw mapRecropException(exception);
+        }
         question.setRequiresAssetReview(true);
         if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
             question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
@@ -702,36 +713,136 @@ public class QuestionService {
         return subject.trim();
     }
 
-    private OfficialExamSource resolveOfficialSourceForQuestion(Question question) {
-        if (question.getSourceExam() == null || question.getSourceYear() == null || question.getSourceDay() == null) {
-            throw new ResourceNotFoundException("Fonte oficial da questão não encontrada para recrop.");
+    private OfficialExamSource resolveOfficialSourceForQuestion(Question question, QuestionAsset asset) {
+        Integer year = question.getSourceYear() != null ? question.getSourceYear() : question.getYear();
+        Integer day = question.getSourceDay();
+        List<String> examCandidates = java.util.stream.Stream.of(question.getSourceExam(), question.getExam())
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
+        if (examCandidates.isEmpty() || year == null || day == null) {
+            log.warn(
+                    "Official source lookup for recrop failed early questionId={} assetId={} examCandidates={} sourceYear={} year={} sourceDay={} sourceBookColor={} validatedAgainstOfficialSource={} officialPdfUrl={} assetSourcePage={} cachedPdfHintPresent={}",
+                    question.getId(),
+                    asset.getId(),
+                    examCandidates,
+                    question.getSourceYear(),
+                    question.getYear(),
+                    question.getSourceDay(),
+                    question.getSourceBookColor(),
+                    question.getValidatedAgainstOfficialSource(),
+                    question.getOfficialPdfUrl(),
+                    asset.getSourcePage(),
+                    hasOfficialPdfHint(question)
+            );
+            throw new ResourceNotFoundException("OFFICIAL_SOURCE_NOT_FOUND_FOR_RECROP");
         }
-        return questionAutoValidationService.listOfficialSources().stream()
-                .filter(source -> source.exam().equalsIgnoreCase(question.getSourceExam()))
-                .filter(source -> source.year() == question.getSourceYear())
-                .filter(source -> java.util.Objects.equals(source.day(), question.getSourceDay()))
-                .filter(source -> question.getSourceBookColor() == null
-                        || question.getSourceBookColor().isBlank()
-                        || "UNKNOWN".equalsIgnoreCase(question.getSourceBookColor())
-                        || java.util.Objects.equals(source.bookColor(), question.getSourceBookColor()))
-                .findFirst()
-                .map(source -> {
-                    OfficialExamSource entity = new OfficialExamSource();
-                    entity.setId(source.id());
-                    entity.setExam(source.exam());
-                    entity.setYear(source.year());
-                    entity.setDay(source.day());
-                    entity.setBookColor(source.bookColor());
-                    entity.setPdfUrl(source.pdfUrl());
-                    entity.setAnswerKeyUrl(source.answerKeyUrl());
-                    entity.setSourceUrl(source.sourceUrl());
-                    entity.setLocalPdfPath(source.localPdfPath());
-                    entity.setCachedPdfUrl(source.cachedPdfUrl());
-                    entity.setCachedAnswerKeyUrl(source.cachedAnswerKeyUrl());
-                    entity.setAnswerKeyMapJson(source.answerKeyMapJson());
-                    return entity;
-                })
-                .orElseThrow(() -> new ResourceNotFoundException("Fonte oficial da questão não encontrada para recrop."));
+
+        List<OfficialExamSource> candidates = examCandidates.stream()
+                .flatMap(exam -> officialExamSourceRepository.findByExamIgnoreCaseAndYearAndDay(exam, year, day).stream())
+                .collect(Collectors.toMap(OfficialExamSource::getId, source -> source, (left, right) -> left))
+                .values()
+                .stream()
+                .toList();
+        List<String> rejectionReasons = new java.util.ArrayList<>();
+        if (candidates.isEmpty()) {
+            rejectionReasons.add("NO_EXAM_YEAR_DAY_MATCH");
+        }
+
+        List<OfficialExamSource> compatibleSources = candidates;
+        if (!isUnknownBookColor(question.getSourceBookColor())) {
+            List<OfficialExamSource> colorMatches = candidates.stream()
+                    .filter(source -> source.getBookColor() != null
+                            && source.getBookColor().equalsIgnoreCase(question.getSourceBookColor()))
+                    .toList();
+            if (!colorMatches.isEmpty()) {
+                compatibleSources = colorMatches;
+            } else {
+                rejectionReasons.add("BOOK_COLOR_MISMATCH");
+            }
+        }
+
+        if (compatibleSources.size() > 1 && question.getOfficialPdfUrl() != null && !question.getOfficialPdfUrl().isBlank()) {
+            List<OfficialExamSource> officialUrlMatches = compatibleSources.stream()
+                    .filter(source -> question.getOfficialPdfUrl().equalsIgnoreCase(source.getPdfUrl())
+                            || question.getOfficialPdfUrl().equalsIgnoreCase(source.getCachedPdfUrl()))
+                    .toList();
+            if (!officialUrlMatches.isEmpty()) {
+                compatibleSources = officialUrlMatches;
+            } else {
+                rejectionReasons.add("OFFICIAL_PDF_URL_NO_MATCH");
+            }
+        }
+
+        if (compatibleSources.size() > 1 && asset.getStoragePath() != null && !asset.getStoragePath().isBlank()) {
+            String storagePath = asset.getStoragePath().toLowerCase(Locale.ROOT);
+            List<OfficialExamSource> storageColorMatches = compatibleSources.stream()
+                    .filter(source -> source.getBookColor() != null
+                            && storagePath.contains("/" + source.getBookColor().toLowerCase(Locale.ROOT) + "/"))
+                    .toList();
+            if (!storageColorMatches.isEmpty()) {
+                compatibleSources = storageColorMatches;
+            } else {
+                rejectionReasons.add("ASSET_STORAGE_PATH_NO_COLOR_MATCH");
+            }
+        }
+
+        if (compatibleSources.size() > 1) {
+            List<OfficialExamSource> pdfReadySources = compatibleSources.stream()
+                    .filter(this::hasAvailableOfficialPdf)
+                    .toList();
+            if (pdfReadySources.size() == 1) {
+                compatibleSources = pdfReadySources;
+            } else if (pdfReadySources.isEmpty()) {
+                rejectionReasons.add("NO_PDF_READY_SOURCE");
+            }
+        }
+
+        if (compatibleSources.size() > 1 && isUnknownBookColor(question.getSourceBookColor())) {
+            rejectionReasons.add("UNKNOWN_BOOK_COLOR_WITH_MULTIPLE_SOURCES");
+        }
+
+        if (compatibleSources.isEmpty() || compatibleSources.size() > 1) {
+            log.warn(
+                    "Official source lookup for recrop failed questionId={} assetId={} sourceExam={} exam={} sourceYear={} year={} sourceDay={} sourceBookColor={} validatedAgainstOfficialSource={} officialPdfUrl={} assetSourcePage={} candidates={} rejectionReasons={} cachedPdfPresentCandidates={}",
+                    question.getId(),
+                    asset.getId(),
+                    question.getSourceExam(),
+                    question.getExam(),
+                    question.getSourceYear(),
+                    question.getYear(),
+                    question.getSourceDay(),
+                    question.getSourceBookColor(),
+                    question.getValidatedAgainstOfficialSource(),
+                    question.getOfficialPdfUrl(),
+                    asset.getSourcePage(),
+                    candidates.stream().map(this::describeOfficialSource).toList(),
+                    rejectionReasons,
+                    candidates.stream().filter(this::hasAvailableOfficialPdf).map(OfficialExamSource::getId).toList()
+            );
+            throw new ResourceNotFoundException("OFFICIAL_SOURCE_NOT_FOUND_FOR_RECROP");
+        }
+
+        OfficialExamSource source = compatibleSources.getFirst();
+        if (!hasAvailableOfficialPdf(source)) {
+            log.warn(
+                    "Official source resolved without PDF for recrop questionId={} assetId={} sourceId={} sourceDescription={}",
+                    question.getId(),
+                    asset.getId(),
+                    source.getId(),
+                    describeOfficialSource(source)
+            );
+            throw new ResourceNotFoundException("OFFICIAL_PDF_URL_MISSING_FOR_RECROP");
+        }
+
+        log.info(
+                "Official source resolved for recrop questionId={} assetId={} sourceId={} sourceDescription={}",
+                question.getId(),
+                asset.getId(),
+                source.getId(),
+                describeOfficialSource(source)
+        );
+        return source;
     }
 
     private void initializeQuestionGraph(Question question) {
@@ -747,6 +858,58 @@ public class QuestionService {
                 )
                 .filter(item -> item.getId().equals(assetId))
                 .findFirst();
+    }
+
+    private boolean isOfficialPdfAsset(QuestionAsset asset) {
+        String storagePath = asset.getStoragePath() == null ? "" : asset.getStoragePath().toLowerCase(Locale.ROOT);
+        String caption = asset.getCaption() == null ? "" : asset.getCaption().toLowerCase(Locale.ROOT);
+        return storagePath.contains("official-pdf-")
+                || caption.contains("pdf oficial")
+                || asset.getSourcePage() != null;
+    }
+
+    private boolean hasAvailableOfficialPdf(OfficialExamSource source) {
+        return (source.getCachedPdfUrl() != null && !source.getCachedPdfUrl().isBlank())
+                || (source.getPdfUrl() != null && !source.getPdfUrl().isBlank())
+                || (source.getLocalPdfPath() != null && !source.getLocalPdfPath().isBlank());
+    }
+
+    private boolean hasOfficialPdfHint(Question question) {
+        return question.getOfficialPdfUrl() != null && !question.getOfficialPdfUrl().isBlank();
+    }
+
+    private boolean isUnknownBookColor(String value) {
+        return value == null || value.isBlank() || "UNKNOWN".equalsIgnoreCase(value);
+    }
+
+    private String describeOfficialSource(OfficialExamSource source) {
+        return "id=%s exam=%s year=%s day=%s color=%s cachedPdf=%s pdfUrl=%s".formatted(
+                source.getId(),
+                source.getExam(),
+                source.getYear(),
+                source.getDay(),
+                source.getBookColor(),
+                source.getCachedPdfUrl() != null && !source.getCachedPdfUrl().isBlank(),
+                source.getPdfUrl() != null && !source.getPdfUrl().isBlank()
+        );
+    }
+
+    private RuntimeException mapRecropException(RuntimeException exception) {
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            return exception;
+        }
+        return switch (message) {
+            case "OFFICIAL_PDF_URL_MISSING_FOR_RECROP" ->
+                    new ResourceNotFoundException(message);
+            case "PDF_DOWNLOAD_FAILED", "PDF_EMPTY_OR_INVALID" ->
+                    new ResourceNotFoundException("OFFICIAL_PDF_URL_MISSING_FOR_RECROP");
+            case "QUESTION_PAGE_NOT_FOUND" ->
+                    new ResourceNotFoundException(message);
+            case "PDF_RENDER_FAILED", "STORAGE_UPLOAD_FAILED", "STORAGE_NOT_CONFIGURED", "ASSET_ENTITY_SAVE_FAILED", "ASSET_CROP_UPDATE_FAILED" ->
+                    new BusinessException(message, HttpStatus.INTERNAL_SERVER_ERROR);
+            default -> exception;
+        };
     }
 
     private AdminImportedQuestionReviewSummaryResponse toAdminReviewSummaryResponse(Question question) {
