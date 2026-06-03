@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { getErrorMessage } from "@/lib/api-error";
+import { getErrorMessage, toAppError } from "@/lib/api-error";
 import { adminImportService } from "@/services/admin-import.service";
 import type {
   OfficialExamSourcePayload,
@@ -177,11 +177,30 @@ export function useUpdateReviewAssetCrop() {
     onSuccess: (question) => {
       queryClient.invalidateQueries({ queryKey: ["admin-review-questions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-review-counters"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-review-question", question.id] });
       queryClient.setQueryData(["admin-review-question", question.id], question);
       toast.success("Crop do asset atualizado.");
     },
-    onError: (error) =>
-      toast.error(getErrorMessage(error, "Não foi possível atualizar o crop do asset.")),
+    onError: (error) => {
+      const appError = toAppError(error);
+      if (appError.status === 404 && appError.message.includes("ASSET_NOT_FOUND_FOR_QUESTION")) {
+        toast.error("Asset não encontrado para esta questão. Recarregue a página e tente novamente.");
+        return;
+      }
+      if (appError.status === 404) {
+        toast.error("Endpoint ou asset não encontrado. Recarregue a página e confirme se o backend está atualizado.");
+        return;
+      }
+      if (appError.status === 403) {
+        toast.error("Você não tem permissão de administrador para ajustar o crop.");
+        return;
+      }
+      if ((appError.status ?? 0) >= 500) {
+        toast.error("Erro interno ao ajustar crop. Consulte os logs do Render.");
+        return;
+      }
+      toast.error(getErrorMessage(error, "Não foi possível atualizar o crop do asset."));
+    },
   });
 }
 

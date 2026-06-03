@@ -369,6 +369,27 @@ class AdminEnemDevImportIntegrationTests {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void cropRouteReturnsControlledNotFoundWhenAssetDoesNotBelongToQuestion() throws Exception {
+        Question saved = buildReviewQuestionWithAlternatives();
+        saved.setValidatedAgainstOfficialSource(true);
+        saved.setSourceDay(1);
+        saved.setSourceBookColor("AZUL");
+        saved = questionRepository.save(saved);
+
+        mockMvc.perform(patch("/admin/import/questions/review/{questionId}/assets/{assetId}/crop", saved.getId(), 9999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(asJson(Map.of(
+                                "cropX", 56,
+                                "cropY", 110,
+                                "cropWidth", 1310,
+                                "cropHeight", 1015
+                        ))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("ASSET_NOT_FOUND_FOR_QUESTION"));
+    }
+
+    @Test
     void needsReviewQuestionStaysHiddenFromStudentEndpoints() throws Exception {
         Question saved = questionRepository.save(buildReviewQuestion());
         User student = createUser();

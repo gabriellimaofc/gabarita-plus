@@ -18,17 +18,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { mutate: logout, isPending } = useLogout();
   const user = useAuthStore((state) => state.user);
+  const hydrated = useAuthStore((state) => state.hydrated);
+  const isAdmin = hydrated && (user?.roles.includes("ROLE_ADMIN") ?? false);
 
   const initials = useMemo(
-    () => initialsFromName(user?.fullName ?? "Gabarita Plus"),
-    [user?.fullName],
+    () => initialsFromName(hydrated ? user?.fullName ?? "Gabarita Plus" : "Gabarita Plus"),
+    [hydrated, user?.fullName],
   );
   const navigationItems = useMemo(() => {
-    if (user?.roles.includes("ROLE_ADMIN")) {
+    if (isAdmin) {
       return [...navItems, { href: "/admin/import/questions/review", label: "Revisão admin" }];
     }
     return navItems;
-  }, [user?.roles]);
+  }, [isAdmin]);
 
   return (
     <div className="min-h-screen">
@@ -88,9 +90,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {initials}
               </div>
               <div>
-                <p className="font-semibold">{user?.fullName ?? "Aluno ENEM"}</p>
+                <p className="font-semibold">{hydrated ? user?.fullName ?? "Aluno ENEM" : "Aluno ENEM"}</p>
                 <p className="text-xs text-muted-foreground">
-                  {user?.targetCourse ?? "Plano focado em aprovação"}
+                  {hydrated ? user?.targetCourse ?? "Plano focado em aprovacao" : "Plano focado em aprovacao"}
                 </p>
               </div>
             </div>

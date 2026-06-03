@@ -26,6 +26,9 @@ export const metadata: Metadata = {
       "Plataforma inteligente para evoluir sua preparação no ENEM com ritmo, clareza e performance.",
     type: "website",
   },
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

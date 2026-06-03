@@ -45,7 +45,6 @@ import {
   useValidateAgainstOfficialSourceBatch,
   useValidateOfficialSource,
 } from "@/hooks/use-admin-import-review";
-import { useProtectedRoute } from "@/hooks/use-protected-route";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import type {
@@ -473,11 +472,9 @@ function ReviewCard({
 }
 
 export function ImportReviewAdminView() {
-  useProtectedRoute();
-
   const user = useAuthStore((state) => state.user);
   const hydrated = useAuthStore((state) => state.hydrated);
-  const isAdmin = user?.roles.includes("ROLE_ADMIN") ?? false;
+  const isAdmin = hydrated && (user?.roles.includes("ROLE_ADMIN") ?? false);
 
   const [filters, setFilters] = useState<ReviewQuestionFilters>({
     page: 0,

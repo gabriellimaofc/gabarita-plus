@@ -208,12 +208,39 @@ public class QuestionService {
             Long assetId,
             UpdateQuestionAssetCropRequest request
     ) {
-        Question question = getQuestionEntity(questionId);
+        Question question = questionRepository.findById(questionId).orElse(null);
+        if (question == null) {
+            log.info(
+                    "Admin asset crop requested. questionId={}, assetId={}, cropX={}, cropY={}, cropWidth={}, cropHeight={}, questionFound=false, assetFound=false, assetBelongsToQuestion=false",
+                    questionId,
+                    assetId,
+                    request.cropX(),
+                    request.cropY(),
+                    request.cropWidth(),
+                    request.cropHeight()
+            );
+            throw new ResourceNotFoundException("Questao nao encontrada.");
+        }
         initializeQuestionGraph(question);
-        QuestionAsset asset = question.getAssets().stream()
-                .filter(item -> item.getId().equals(assetId))
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Asset da questão não encontrado."));
+        QuestionAsset asset = findAssetForQuestion(question, assetId).orElse(null);
+        boolean assetFound = asset != null;
+        boolean assetBelongsToQuestion = assetFound
+                && asset.getQuestion() != null
+                && questionId.equals(asset.getQuestion().getId());
+        log.info(
+                "Admin asset crop requested. questionId={}, assetId={}, cropX={}, cropY={}, cropWidth={}, cropHeight={}, questionFound=true, assetFound={}, assetBelongsToQuestion={}",
+                questionId,
+                assetId,
+                request.cropX(),
+                request.cropY(),
+                request.cropWidth(),
+                request.cropHeight(),
+                assetFound,
+                assetBelongsToQuestion
+        );
+        if (!assetBelongsToQuestion) {
+            throw new ResourceNotFoundException("ASSET_NOT_FOUND_FOR_QUESTION");
+        }
 
         OfficialExamSource source = resolveOfficialSourceForQuestion(question);
         officialPdfAssetRecoveryService.recropOfficialAsset(
@@ -235,6 +262,15 @@ public class QuestionService {
             question.setImportStatus(QuestionImportStatus.NEEDS_REVIEW);
         }
         Question saved = questionRepository.save(question);
+        log.info(
+                "Admin asset crop updated. questionId={}, assetId={}, cropX={}, cropY={}, cropWidth={}, cropHeight={}, metadataOnly=false",
+                questionId,
+                assetId,
+                asset.getCropX(),
+                asset.getCropY(),
+                asset.getCropWidth(),
+                asset.getCropHeight()
+        );
         initializeQuestionGraph(saved);
         return toAdminReviewDetailResponse(saved);
     }
@@ -243,10 +279,8 @@ public class QuestionService {
     public AdminImportedQuestionReviewDetailResponse approveReviewQuestionAsset(Long questionId, Long assetId) {
         Question question = getQuestionEntity(questionId);
         initializeQuestionGraph(question);
-        QuestionAsset asset = question.getAssets().stream()
-                .filter(item -> item.getId().equals(assetId))
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Asset da questão não encontrado."));
+        QuestionAsset asset = findAssetForQuestion(question, assetId)
+                .orElseThrow(() -> new ResourceNotFoundException("ASSET_NOT_FOUND_FOR_QUESTION"));
         asset.setCaption("Asset oficial aprovado manualmente para revisão.");
         question.setRequiresAssetReview(false);
         if (question.getImportStatus() != QuestionImportStatus.PUBLISHED) {
@@ -704,6 +738,15 @@ public class QuestionService {
         question.getAssets().size();
         question.getAlternatives().forEach(alternative -> alternative.getAssets().size());
         question.getAlternatives().size();
+    }
+
+    private java.util.Optional<QuestionAsset> findAssetForQuestion(Question question, Long assetId) {
+        return java.util.stream.Stream.concat(
+                        question.getAssets().stream(),
+                        question.getAlternatives().stream().flatMap(alternative -> alternative.getAssets().stream())
+                )
+                .filter(item -> item.getId().equals(assetId))
+                .findFirst();
     }
 
     private AdminImportedQuestionReviewSummaryResponse toAdminReviewSummaryResponse(Question question) {
