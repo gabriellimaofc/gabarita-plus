@@ -800,7 +800,7 @@ export function ImportReviewAdminView() {
         </Card>
       ) : null}
 
-      <div className="grid items-start gap-6 xl:grid-cols-[320px_minmax(0,1.55fr)_340px] 2xl:grid-cols-[360px_minmax(0,1.7fr)_380px]">
+      <div className="grid items-start gap-6 min-[1380px]:grid-cols-[320px_minmax(640px,1fr)] min-[1580px]:grid-cols-[320px_minmax(720px,1fr)_340px]">
         <Card className="min-w-0 overflow-hidden xl:sticky xl:top-24">
           <CardHeader className="border-b border-border/70">
             <div className="flex items-center justify-between gap-3">
@@ -874,7 +874,7 @@ export function ImportReviewAdminView() {
           </CardContent>
         </Card>
 
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-6 min-[1380px]:min-w-[640px]">
           {selectedId === null ? (
             <EmptyState
               title="Selecione uma questão"
@@ -909,7 +909,7 @@ export function ImportReviewAdminView() {
                             : "Pendente INEP"}
                         </Badge>
                       </div>
-                      <CardTitle className="text-balance break-words text-2xl">
+                      <CardTitle className="break-normal text-2xl [overflow-wrap:anywhere]">
                         {selectedQuestion.title}
                       </CardTitle>
                       <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
@@ -1165,7 +1165,7 @@ export function ImportReviewAdminView() {
           )}
         </div>
 
-        <div className="min-w-0 space-y-6 xl:sticky xl:top-24">
+        <div className="min-w-0 space-y-6 min-[1380px]:col-span-2 min-[1580px]:col-span-1 min-[1580px]:sticky min-[1580px]:top-24">
           {selectedQuestion ? (
             <>
               <Card className="min-w-0 overflow-hidden border-border/70 bg-background/60">
