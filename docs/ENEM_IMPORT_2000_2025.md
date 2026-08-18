@@ -182,10 +182,11 @@ O backend esta preparado para:
 Variaveis reservadas:
 
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SECRET_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (fallback legado/deprecated)
 - `SUPABASE_BUCKET_QUESTIONS`
 
-Nunca exponha `SUPABASE_SERVICE_ROLE_KEY` no frontend.
+Nunca exponha `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` no frontend.
 
 ## Pipeline futuro de PDF
 

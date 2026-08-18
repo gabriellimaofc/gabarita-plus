@@ -24,6 +24,9 @@ public class QuestionAssetStorageService {
     @Value("${SUPABASE_URL:${supabase.url:}}")
     private String supabaseUrl;
 
+    @Value("${SUPABASE_SECRET_KEY:${supabase.secret-key:}}")
+    private String supabaseSecretKey;
+
     @Value("${SUPABASE_SERVICE_ROLE_KEY:${supabase.service-role-key:}}")
     private String supabaseServiceRoleKey;
 
@@ -37,27 +40,26 @@ public class QuestionAssetStorageService {
         if (isSupabaseConfigured()) {
             String baseUrl = supabaseUrl.replaceAll("/+$", "");
             String encodedPath = storagePath.replace("\\", "/");
+            String apiKey = effectiveSupabaseApiKey();
             RestClient restClient = restClientBuilder.build();
             try {
                 restClient
                         .get()
                         .uri(URI.create(baseUrl + "/storage/v1/bucket/" + supabaseBucketQuestions))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + supabaseServiceRoleKey)
-                        .header("apikey", supabaseServiceRoleKey)
+                        .headers(headers -> headers.addAll(supabaseHeaders(apiKey)))
                         .retrieve()
                         .toBodilessEntity();
             } catch (HttpClientErrorException.NotFound exception) {
-                throw new QuestionAssetStorageException("STORAGE_BUCKET_NOT_FOUND", "Supabase bucket not found.", exception);
+                throw new QuestionAssetStorageException("STORAGE_BUCKET_NOT_FOUND", "Supabase bucket not found.");
             } catch (RestClientException exception) {
-                throw new QuestionAssetStorageException("STORAGE_UPLOAD_FAILED", "Could not validate Supabase bucket.", exception);
+                throw new QuestionAssetStorageException("STORAGE_UPLOAD_FAILED", "Could not validate Supabase bucket.");
             }
 
             try {
                 ResponseEntity<Void> response = restClient
                         .post()
                         .uri(URI.create(baseUrl + "/storage/v1/object/" + supabaseBucketQuestions + "/" + encodedPath))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + supabaseServiceRoleKey)
-                        .header("apikey", supabaseServiceRoleKey)
+                        .headers(headers -> headers.addAll(supabaseHeaders(apiKey)))
                         .header("x-upsert", "true")
                         .contentType(MediaType.IMAGE_PNG)
                         .body(content)
@@ -69,9 +71,9 @@ public class QuestionAssetStorageService {
             } catch (QuestionAssetStorageException exception) {
                 throw exception;
             } catch (HttpClientErrorException.NotFound exception) {
-                throw new QuestionAssetStorageException("STORAGE_BUCKET_NOT_FOUND", "Supabase bucket not found during upload.", exception);
+                throw new QuestionAssetStorageException("STORAGE_BUCKET_NOT_FOUND", "Supabase bucket not found during upload.");
             } catch (RestClientException exception) {
-                throw new QuestionAssetStorageException("STORAGE_UPLOAD_FAILED", "Supabase upload failed.", exception);
+                throw new QuestionAssetStorageException("STORAGE_UPLOAD_FAILED", "Supabase upload failed.");
             }
 
             return new StoredAsset(
@@ -91,8 +93,27 @@ public class QuestionAssetStorageService {
 
     public boolean isSupabaseConfigured() {
         return supabaseUrl != null && !supabaseUrl.isBlank()
-                && supabaseServiceRoleKey != null && !supabaseServiceRoleKey.isBlank()
+                && effectiveSupabaseApiKey() != null
                 && supabaseBucketQuestions != null && !supabaseBucketQuestions.isBlank();
+    }
+
+    private String effectiveSupabaseApiKey() {
+        if (supabaseSecretKey != null && !supabaseSecretKey.isBlank()) {
+            return supabaseSecretKey;
+        }
+        if (supabaseServiceRoleKey != null && !supabaseServiceRoleKey.isBlank()) {
+            return supabaseServiceRoleKey;
+        }
+        return null;
+    }
+
+    private HttpHeaders supabaseHeaders(String apiKey) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("apikey", apiKey);
+        if (!apiKey.startsWith("sb_secret_")) {
+            headers.setBearerAuth(apiKey);
+        }
+        return headers;
     }
 
     public record StoredAsset(String publicUrl, String storagePath) {

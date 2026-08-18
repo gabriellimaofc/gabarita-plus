@@ -2,6 +2,11 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import {
+  buildSupabaseHeaders,
+  redactSupabaseSecrets,
+  resolveSupabaseApiKey,
+} from "./supabase-auth.mjs";
 
 const DEFAULT_MANIFEST = "tools/official-pdfs/enem-official-pdfs.manifest.json";
 const USER_AGENT = "Mozilla/5.0 (compatible; GabaritaPlusOfficialPdfCache/1.0; +https://gabarita-plus.vercel.app)";
@@ -11,7 +16,9 @@ const apiBaseUrl = trimTrailingSlash(process.env.API_BASE_URL ?? "https://gabari
 const adminEmail = process.env.ADMIN_EMAIL;
 const adminPassword = process.env.ADMIN_PASSWORD;
 const supabaseUrl = trimTrailingSlash(process.env.SUPABASE_URL ?? "");
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseApiKey = resolveSupabaseApiKey(process.env);
 const bucket = process.env.SUPABASE_BUCKET_OFFICIAL_PDFS ?? "official-exam-pdfs";
 const urlMode = (process.env.SUPABASE_PDF_URL_MODE ?? "public").toLowerCase();
 const signedUrlExpiresSeconds = Number(process.env.SUPABASE_SIGNED_URL_EXPIRES_SECONDS ?? 60 * 60 * 24 * 365);
@@ -20,7 +27,7 @@ const reportPath = resolve(process.env.REPORT_PATH ?? "database/imports/official
 assertRequiredEnv("ADMIN_EMAIL", adminEmail);
 assertRequiredEnv("ADMIN_PASSWORD", adminPassword);
 assertRequiredEnv("SUPABASE_URL", supabaseUrl);
-assertRequiredEnv("SUPABASE_SERVICE_ROLE_KEY", supabaseServiceRoleKey);
+assertSupabaseApiKey(supabaseApiKey);
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 if (!Array.isArray(manifest)) {
@@ -184,7 +191,7 @@ async function ensureBucket() {
   });
   if (!createResponse.ok && createResponse.status !== 409) {
     const body = await createResponse.text();
-    throw new Error(`Could not create Supabase bucket ${bucket}: HTTP ${createResponse.status} ${body}`);
+    throw new Error(`Could not create Supabase bucket ${bucket}: HTTP ${createResponse.status} ${sanitize(body)}`);
   }
 }
 
@@ -205,7 +212,7 @@ async function uploadPdf(storagePath, content, item) {
   });
   if (!uploadResponse.ok) {
     const body = await uploadResponse.text();
-    throw new Error(`Upload failed for ${storagePath}: HTTP ${uploadResponse.status} ${body}`);
+    throw new Error(`Upload failed for ${storagePath}: HTTP ${uploadResponse.status} ${sanitize(body)}`);
   }
 
   report.uploaded += 1;
@@ -235,8 +242,7 @@ function supabaseFetch(path, options) {
   return fetch(`${supabaseUrl}${path}`, {
     ...options,
     headers: {
-      authorization: `Bearer ${supabaseServiceRoleKey}`,
-      apikey: supabaseServiceRoleKey,
+      ...buildSupabaseHeaders(supabaseApiKey),
       ...(options.headers ?? {}),
     },
   });
@@ -270,13 +276,27 @@ function assertRequiredEnv(name, value) {
   }
 }
 
+function assertSupabaseApiKey(value) {
+  if (!value) {
+    throw new Error(
+      "SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required. "
+      + "Do not hardcode secrets; pass one via an environment variable.",
+    );
+  }
+}
+
 function trimTrailingSlash(value) {
   return value.replace(/\/+$/, "");
 }
 
 function safeError(error) {
   const message = error instanceof Error ? error.message : String(error);
-  return message.length > 500 ? `${message.slice(0, 500)}...` : message;
+  const sanitized = sanitize(message);
+  return sanitized.length > 500 ? `${sanitized.slice(0, 500)}...` : sanitized;
+}
+
+function sanitize(value) {
+  return redactSupabaseSecrets(value, [supabaseSecretKey, supabaseServiceRoleKey]);
 }
 
 function sleep(ms) {

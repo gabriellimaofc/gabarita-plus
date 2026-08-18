@@ -19,6 +19,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    baseline-version: ${SPRING_FLYWAY_BASELINE_VERSION:0}
   data:
     redis:
       repositories:
